@@ -27,5 +27,12 @@ let package = Package(
             name: "Wirelet",
             dependencies: ["WireletMacros"]
         ),
+        .target(
+            name: "WireletSchema",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
     ]
 )
