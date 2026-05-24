@@ -9,6 +9,7 @@ let package = Package(
     ],
     products: [
         .library(name: "Wirelet", targets: ["Wirelet"]),
+        .executable(name: "emit-wirelet-kotlin", targets: ["EmitWireletKotlin"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
@@ -37,6 +38,10 @@ let package = Package(
         .target(
             name: "WireletKotlinEmitter",
             dependencies: ["WireletSchema"]
+        ),
+        .executableTarget(
+            name: "EmitWireletKotlin",
+            dependencies: ["WireletSchema", "WireletKotlinEmitter"]
         ),
     ]
 )
