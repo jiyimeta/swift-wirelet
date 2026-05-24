@@ -1,0 +1,14 @@
+.build/
+.swiftpm/
+Packages/
+xcuserdata/
+*.xcodeproj/
+DerivedData/
+
+kotlin/.gradle/
+kotlin/build/
+kotlin/**/build/
+kotlin/local.properties
+
+.claude/worktrees/*
+!.claude/worktrees/.gitkeep
