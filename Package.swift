@@ -34,5 +34,9 @@ let package = Package(
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ]
         ),
+        .target(
+            name: "WireletKotlinEmitter",
+            dependencies: ["WireletSchema"]
+        ),
     ]
 )
