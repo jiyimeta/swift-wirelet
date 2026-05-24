@@ -7,7 +7,9 @@ let package = Package(
     platforms: [
         .macOS(.v14),
     ],
-    products: [],
+    products: [
+        .library(name: "Wirelet", targets: ["Wirelet"]),
+    ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
     ],
@@ -20,6 +22,10 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
             ]
+        ),
+        .target(
+            name: "Wirelet",
+            dependencies: ["WireletMacros"]
         ),
     ]
 )
