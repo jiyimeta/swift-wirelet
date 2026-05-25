@@ -4,7 +4,7 @@ import SwiftSyntax
 
 public enum SchemaParser {
     /// Parses a WireFormat schema from Swift source. The `fileName` parameter is retained for
-    /// future per-file diagnostic output in Task 11 (EmitKotlinCodecs CLI).
+    /// future per-file diagnostic output in Task 11 (EmitWireletKotlin CLI).
     public static func parse(source: String, fileName: String) -> Schema {
         let tree = Parser.parse(source: source)
         let visitor = WireTypeVisitor(viewMode: .sourceAccurate)

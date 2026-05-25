@@ -47,7 +47,7 @@ public enum WireFormatError: Error, Equatable {
 }
 
 /// Per-type override controlling how the external Kotlin codec
-/// emitter (`emit-kotlin-codecs`) handles this type. The Swift macro
+/// emitter (`emit-wirelet-kotlin`) handles this type. The Swift macro
 /// expansion ignores this argument — it's metadata for the external
 /// tool only.
 ///
