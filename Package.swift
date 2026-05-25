@@ -43,5 +43,20 @@ let package = Package(
             name: "EmitWireletKotlin",
             dependencies: ["WireletSchema", "WireletKotlinEmitter"]
         ),
+        .testTarget(
+            name: "WireletSchemaTests",
+            dependencies: ["WireletSchema"],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "WireletKotlinEmitterTests",
+            dependencies: ["WireletKotlinEmitter", "WireletSchema"],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "EmitWireletKotlinTests",
+            dependencies: ["EmitWireletKotlin", "WireletKotlinEmitter", "WireletSchema"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )
