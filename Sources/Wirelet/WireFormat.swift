@@ -36,6 +36,14 @@ extension WireFormatDecodable {
     }
 }
 
+/// The 3-bit wire-type field stored in the low bits of every tag varint.
+public enum WireType: UInt8, Sendable {
+    case varint = 0          // Int / UInt / Bool / enum raw
+    case fixed64 = 1         // Double, fixed Int64
+    case lengthDelimited = 2 // String / Data / Array / Dictionary / nested struct / choice
+    case fixed32 = 5         // Float, fixed Int32
+}
+
 /// Errors thrown while decoding wire-format payloads.
 public enum WireFormatError: Error, Equatable {
     /// The reader needed `needed` bytes but only `remaining` were left.
@@ -44,6 +52,15 @@ public enum WireFormatError: Error, Equatable {
     case invalidCount(Int32)
     /// String byte payload was not valid UTF-8.
     case invalidUTF8
+    /// A tag varint had an unrecognized wire-type code (i.e. not 0/1/2/5).
+    case unknownWireType(UInt8)
+    /// A varint exceeded the maximum 10 bytes (64-bit value).
+    case varintOverflow
+    /// An unknown tag was encountered and the decoder is in strict mode.
+    /// `wireType` allows the caller to skip the field if they relax.
+    case unknownTag(tag: UInt32, wireType: WireType)
+    /// `@WireFormatChoice` saw a discriminator outside the known case range.
+    case unknownChoiceDiscriminator(UInt32)
 }
 
 /// Per-type override controlling how the external Kotlin codec

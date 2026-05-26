@@ -17,3 +17,19 @@ public struct WireFormatWriter {
         data.append(contentsOf: bytes)
     }
 }
+
+extension WireFormatWriter {
+    /// Encode a `(tag, wireType)` pair as a single varint.
+    public mutating func writeTag(tag: UInt32, wireType: WireType) {
+        writeVarint(UInt64(tag) << 3 | UInt64(wireType.rawValue))
+    }
+
+    /// Buffers the body, then writes its varint length, then the bytes.
+    /// Body callback receives an inner writer to avoid double-writes.
+    public mutating func writeLengthPrefixed(_ body: (inout WireFormatWriter) -> Void) {
+        var inner = WireFormatWriter()
+        body(&inner)
+        writeVarint(UInt64(inner.data.count))
+        appendBytes(inner.data)
+    }
+}

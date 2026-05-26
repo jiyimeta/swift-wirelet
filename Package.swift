@@ -44,6 +44,10 @@ let package = Package(
             dependencies: ["WireletSchema", "WireletKotlinEmitter"]
         ),
         .testTarget(
+            name: "WireletRuntimeTests",
+            dependencies: ["Wirelet"]
+        ),
+        .testTarget(
             name: "WireletSchemaTests",
             dependencies: ["WireletSchema"],
             resources: [.copy("Fixtures")]

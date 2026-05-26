@@ -47,3 +47,36 @@ public struct WireFormatReader {
         return Data(slice)
     }
 }
+
+extension WireFormatReader {
+    /// Read a `(tag, wireType)` pair encoded as a single varint.
+    public mutating func readTag() throws -> (tag: UInt32, wireType: WireType) {
+        let raw = try readVarint()
+        let wtCode = UInt8(raw & 0b111)
+        guard let wireType = WireType(rawValue: wtCode) else {
+            throw WireFormatError.unknownWireType(wtCode)
+        }
+        let tag = UInt32(raw >> 3)
+        return (tag, wireType)
+    }
+
+    /// Read the body length, slice that many bytes into a sub-reader, advance.
+    public mutating func readLengthPrefixed<R>(
+        _ body: (inout WireFormatReader) throws -> R
+    ) throws -> R {
+        let len = Int(try readVarint())
+        let slice = try readBytes(count: len)
+        var inner = WireFormatReader(data: slice)
+        return try body(&inner)
+    }
+
+    /// Skip a field of the given `wireType`, advancing past its payload.
+    public mutating func skipUnknownField(wireType: WireType) throws {
+        switch wireType {
+        case .varint:           _ = try readVarint()
+        case .fixed64:          _ = try readBytes(count: 8)
+        case .lengthDelimited:  _ = try readLengthPrefixed { _ in () }
+        case .fixed32:          _ = try readBytes(count: 4)
+        }
+    }
+}
