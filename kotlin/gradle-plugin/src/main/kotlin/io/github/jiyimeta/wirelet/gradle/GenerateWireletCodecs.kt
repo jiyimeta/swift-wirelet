@@ -4,12 +4,13 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.FileTree
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -25,8 +26,7 @@ import javax.inject.Inject
  * --output <outputDir>`. Honours `--include-package` filters via the CLI.
  *
  * Marked `@CacheableTask`: outputs are pure functions of inputs (schema
- * sources, config, CLI version embedded in `swiftPackagePath`) so build
- * cache works.
+ * sources + CLI source files) so build cache works.
  */
 @CacheableTask
 abstract class GenerateWireletCodecs @Inject constructor(
@@ -37,9 +37,32 @@ abstract class GenerateWireletCodecs @Inject constructor(
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val schemaPaths: ConfigurableFileCollection
 
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
+    /**
+     * Filesystem location of the wirelet Swift package — used at exec time
+     * to fork `swift run --package-path …`. Marked `@Internal` because the
+     * raw directory cannot be a tracked input: `swift run` mutates volatile
+     * subtrees (`.build/`, `.swiftpm/`) on every invocation, which would
+     * defeat Gradle's UP-TO-DATE check. The version-tracked subset of this
+     * directory is fingerprinted through [cliSourceTree] instead.
+     */
+    @get:Internal
     abstract val swiftPackagePath: DirectoryProperty
+
+    /**
+     * Version-tracking fingerprint of the wirelet Swift package: every
+     * source file under `Sources/`, plus the manifest. Excludes the
+     * build-product directories Swift Package Manager writes into
+     * (`.build/`, `.swiftpm/`) and the auto-generated `Package.resolved`.
+     * A bump to the CLI or any of its dependencies invalidates the cache;
+     * a fresh `swift run` invocation does not.
+     */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    val cliSourceTree: FileTree
+        get() = swiftPackagePath.asFileTree.matching {
+            include("Sources/**")
+            include("Package.swift")
+        }
 
     @get:Input abstract val codecPackage: Property<String>
     @get:Input abstract val modelPackage: Property<String>
