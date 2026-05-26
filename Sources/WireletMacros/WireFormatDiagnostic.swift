@@ -8,6 +8,8 @@ enum WireFormatDiagnostic: DiagnosticMessage {
     case tagConflict(tag: UInt32)
     case reservedTagUsed(tag: UInt32, fieldName: String)
     case tagOutOfRange(fieldName: String)
+    case choiceWithoutAssociatedValues
+    case fieldOnComputedProperty(propertyName: String)
 
     var message: String {
         switch self {
@@ -25,6 +27,10 @@ enum WireFormatDiagnostic: DiagnosticMessage {
             return "Tag \(tag) is reserved and cannot be used by field '\(name)'"
         case let .tagOutOfRange(name):
             return "Field '\(name)' has explicit tag 0; tags must be > 0"
+        case .choiceWithoutAssociatedValues:
+            return "@WireFormatChoice expects at least one case with associated values; prefer @WireFormatEnum for plain enums"
+        case let .fieldOnComputedProperty(name):
+            return "@WireFormatField is ignored on computed property '\(name)'"
         }
     }
 
@@ -38,11 +44,19 @@ enum WireFormatDiagnostic: DiagnosticMessage {
         case .tagConflict: id = "tagConflict"
         case .reservedTagUsed: id = "reservedTagUsed"
         case .tagOutOfRange: id = "tagOutOfRange"
+        case .choiceWithoutAssociatedValues: id = "choiceWithoutAssociatedValues"
+        case .fieldOnComputedProperty: id = "fieldOnComputedProperty"
         }
         return MessageID(domain: "Wirelet", id: id)
     }
 
     var severity: DiagnosticSeverity {
-        .error
+        switch self {
+        case .choiceWithoutAssociatedValues, .fieldOnComputedProperty:
+            return .warning
+        case .notAStruct, .notAnEnum, .missingTypeAnnotation, .missingRawType,
+             .tagConflict, .reservedTagUsed, .tagOutOfRange:
+            return .error
+        }
     }
 }

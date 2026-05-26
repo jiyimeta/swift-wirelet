@@ -57,6 +57,14 @@ final class WireFormatChoiceMacroExpansionTests: XCTestCase {
                 }
             }
             """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "@WireFormatChoice expects at least one case with associated values; prefer @WireFormatEnum for plain enums",
+                    line: 1,
+                    column: 1,
+                    severity: .warning
+                ),
+            ],
             macros: testMacros
         )
     }

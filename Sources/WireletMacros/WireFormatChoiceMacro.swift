@@ -42,6 +42,17 @@ public struct WireFormatChoiceMacro: ExtensionMacro {
 
         let cases = collectCases(of: enumDecl)
 
+        // Warn when the enum has cases but none of them carry associated
+        // values — @WireFormatEnum (raw-value backed) is the more
+        // idiomatic choice for plain enums and produces a smaller wire
+        // payload (no length wrapper around just the discriminator).
+        if !cases.isEmpty, cases.allSatisfy({ $0.parameters.isEmpty }) {
+            context.diagnose(Diagnostic(
+                node: Syntax(node),
+                message: WireFormatDiagnostic.choiceWithoutAssociatedValues,
+            ))
+        }
+
         let encodePayloadBody = renderEncodePayloadBody(cases: cases)
         let decodePayloadBody = renderDecodePayloadBody(cases: cases)
 

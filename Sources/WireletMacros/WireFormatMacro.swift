@@ -166,6 +166,21 @@ public struct WireFormatMacro: ExtensionMacro {
         return []
     }
 
+    /// Returns true when the variable declaration carries any
+    /// `@WireFormatField(...)` attribute, regardless of its argument
+    /// list. Used to distinguish "user marked this property" from
+    /// "macro skipped it silently".
+    private static func hasWireFormatFieldAttribute(_ varDecl: VariableDeclSyntax) -> Bool {
+        for attr in varDecl.attributes {
+            guard let attribute = attr.as(AttributeSyntax.self) else { continue }
+            guard let identType = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+                continue
+            }
+            if identType.name.text == "WireFormatField" { return true }
+        }
+        return false
+    }
+
     /// Extracts the `tag:` argument from a `@WireFormatField(tag: N)`
     /// attribute, if present on the property. Returns `nil` when the
     /// attribute is absent or has no parseable integer literal.
@@ -228,9 +243,26 @@ public struct WireFormatMacro: ExtensionMacro {
             if isStatic { continue }
 
             let explicit = explicitTag(of: varDecl)
+            let hasFieldAttribute = hasWireFormatFieldAttribute(varDecl)
 
             for binding in varDecl.bindings {
-                if isComputed(binding: binding) { continue }
+                if isComputed(binding: binding) {
+                    // Warn when the user attached @WireFormatField to a
+                    // computed property — the attribute is silently
+                    // dropped, which is surprising. (Stored properties
+                    // are still the only thing the macro can serialize.)
+                    if hasFieldAttribute,
+                       let identPattern = binding.pattern.as(IdentifierPatternSyntax.self)
+                    {
+                        context.diagnose(Diagnostic(
+                            node: Syntax(varDecl),
+                            message: WireFormatDiagnostic.fieldOnComputedProperty(
+                                propertyName: identPattern.identifier.text,
+                            ),
+                        ))
+                    }
+                    continue
+                }
 
                 guard let identPattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
                     continue
