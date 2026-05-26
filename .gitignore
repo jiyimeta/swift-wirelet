@@ -10,5 +10,12 @@ kotlin/build/
 kotlin/**/build/
 kotlin/local.properties
 
+# cross-roundtrip example: generated codecs + per-module build outputs.
+examples/cross-roundtrip/jvm-decoder/.gradle/
+examples/cross-roundtrip/jvm-decoder/build/
+examples/cross-roundtrip/**/.build/
+examples/cross-roundtrip/**/.swiftpm/
+examples/cross-roundtrip/**/Package.resolved
+
 .claude/worktrees/*
 !.claude/worktrees/.gitkeep

@@ -1,0 +1,7 @@
+{
+  "defaultModelPackage": "io.github.jiyimeta.wirelet.example.model",
+  "defaultCodecPackage": "io.github.jiyimeta.wirelet.example.serialization",
+  "defaultSerializationPackage": "io.github.jiyimeta.wirelet",
+  "nameTransform": { "identity": true },
+  "rules": []
+}
