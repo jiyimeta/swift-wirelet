@@ -5,39 +5,56 @@ import io.example.smufl.SMuFLMetrics
 import io.example.smufl.SMuFLMetricsEntry
 import io.example.audio.serialization.BinaryReader
 import io.example.audio.serialization.BinaryWriter
+import io.example.audio.serialization.WireFormatException
+import io.example.audio.serialization.WireType
 
 public object SMuFLMetricsCodec {
+    val WIRE_TYPE: WireType = WireType.LENGTH_DELIMITED
+
     fun encode(value: SMuFLMetrics): ByteArray {
         val w = BinaryWriter()
-        encodePayload(value, w)
+        w.writeLengthPrefixed { encodePayload(value, this) }
         return w.toByteArray()
     }
 
     fun encodePayload(value: SMuFLMetrics, w: BinaryWriter) {
-        w.writeU32(value.magic)
-        w.writeU32(value.version)
+        w.writeTag(1, WireType.VARINT)
+        w.writeVarint((value.magic).toLong())
+        w.writeTag(2, WireType.VARINT)
+        w.writeVarint((value.version).toLong())
+        w.writeTag(3, WireType.FIXED64)
         w.writeF64(value.referenceSize)
-        w.writeI32(value.entries.size)
-        for (entry in value.entries) SMuFLMetricsEntryCodec.encodePayload(entry, w)
+        w.writeTag(4, WireType.LENGTH_DELIMITED)
+        w.writeLengthPrefixed {
+            for (e in value.entries) SMuFLMetricsEntryCodec.encodePayload(e, this)
+        }
     }
 
     fun decode(data: ByteArray): SMuFLMetrics {
         val r = BinaryReader(data)
-        return decodePayload(r)
+        return r.readLengthPrefixed { decodePayload(it) }
     }
 
     fun decodePayload(r: BinaryReader): SMuFLMetrics {
-        val magic = r.readU32()
-        val version = r.readU32()
-        val referenceSize = r.readF64()
-        val count = r.readI32()
-        val entries = ArrayList<SMuFLMetricsEntry>(count)
-        repeat(count) { entries.add(SMuFLMetricsEntryCodec.decodePayload(r)) }
+        var _magic: UInt? = null
+        var _version: UInt? = null
+        var _referenceSize: Double? = null
+        var _entries: List<SMuFLMetricsEntry>? = null
+        while (r.remaining > 0) {
+            val (tag, wt) = r.readTag()
+            when (tag) {
+                1 -> _magic = r.readVarint().toUInt()
+                2 -> _version = r.readVarint().toUInt()
+                3 -> _referenceSize = r.readF64()
+                4 -> _entries = r.readLengthPrefixed { val list = ArrayList<SMuFLMetricsEntry>(); while (it.remaining > 0) list.add(SMuFLMetricsEntryCodec.decodePayload(it)); list }
+                else -> r.skipUnknownField(wt)
+            }
+        }
         return SMuFLMetrics(
-            magic = magic,
-            version = version,
-            referenceSize = referenceSize,
-            entries = entries,
+            magic = _magic ?: throw WireFormatException.UnknownTag(1, WireType.VARINT),
+            version = _version ?: throw WireFormatException.UnknownTag(2, WireType.VARINT),
+            referenceSize = _referenceSize ?: throw WireFormatException.UnknownTag(3, WireType.FIXED64),
+            entries = _entries ?: throw WireFormatException.UnknownTag(4, WireType.LENGTH_DELIMITED),
         )
     }
 }

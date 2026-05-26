@@ -13,6 +13,69 @@ enum AttributeArgumentExtractor {
         return .auto
     }
 
+    /// Extracts the `reservedTags:` set from a `@WireFormat(reservedTags: [...])`
+    /// attribute. Returns an empty set when the argument is absent or unparseable.
+    static func reservedTags(of attribute: AttributeSyntax) -> Set<UInt32> {
+        guard case let .argumentList(args) = attribute.arguments else {
+            return []
+        }
+        for arg in args where arg.label?.text == "reservedTags" {
+            guard let array = arg.expression.as(ArrayExprSyntax.self) else {
+                return []
+            }
+            var out = Set<UInt32>()
+            for element in array.elements {
+                if let intLit = element.expression.as(IntegerLiteralExprSyntax.self),
+                   let value = UInt32(intLit.literal.text)
+                {
+                    out.insert(value)
+                }
+            }
+            return out
+        }
+        return []
+    }
+
+    /// Extracts the `tag:` argument from a `@WireFormatField(tag: N)`
+    /// attribute on a `var` declaration, if present. Returns `nil` when
+    /// the attribute is absent or has no parseable integer literal.
+    static func explicitFieldTag(of varDecl: VariableDeclSyntax) -> UInt32? {
+        for attr in varDecl.attributes {
+            guard let attribute = attr.as(AttributeSyntax.self) else { continue }
+            guard let identType = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+                continue
+            }
+            if identType.name.text != "WireFormatField" { continue }
+            guard case let .argumentList(args) = attribute.arguments else { continue }
+            for arg in args where arg.label?.text == "tag" {
+                if let intLit = arg.expression.as(IntegerLiteralExprSyntax.self),
+                   let value = UInt32(intLit.literal.text)
+                {
+                    return value
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Detects `T?` (sugar) and `Optional<T>` (explicit) forms and returns
+    /// `(isOptional, wrappedTypeText)`. For non-optional types returns
+    /// `(false, typeText)`.
+    static func unwrapOptional(_ type: TypeSyntax) -> (isOptional: Bool, wrapped: String) {
+        if let optType = type.as(OptionalTypeSyntax.self) {
+            return (true, optType.wrappedType.trimmedDescription)
+        }
+        if let identType = type.as(IdentifierTypeSyntax.self),
+           identType.name.text == "Optional",
+           let generics = identType.genericArgumentClause,
+           let firstArg = generics.arguments.first,
+           generics.arguments.count == 1
+        {
+            return (true, firstArg.argument.trimmedDescription)
+        }
+        return (false, type.trimmedDescription)
+    }
+
     private static func parseKotlinTarget(from expr: ExprSyntax) -> KotlinTarget {
         if let member = expr.as(MemberAccessExprSyntax.self) {
             switch member.declName.baseName.text {

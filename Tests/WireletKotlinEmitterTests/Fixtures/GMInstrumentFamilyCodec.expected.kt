@@ -4,6 +4,8 @@ package io.example.audio.serialization
 import io.example.audio.model.GMInstrumentFamily
 
 public object GMInstrumentFamilyCodec {
+    val WIRE_TYPE: WireType = WireType.VARINT
+
     fun encode(value: GMInstrumentFamily): ByteArray {
         val w = BinaryWriter()
         encodePayload(value, w)
@@ -11,7 +13,7 @@ public object GMInstrumentFamilyCodec {
     }
 
     fun encodePayload(value: GMInstrumentFamily, w: BinaryWriter) {
-        w.writeU8(value.ordinal.toUByte())
+        w.writeVarint(value.ordinal.toLong())
     }
 
     fun decode(data: ByteArray): GMInstrumentFamily {
@@ -20,12 +22,10 @@ public object GMInstrumentFamilyCodec {
     }
 
     fun decodePayload(r: BinaryReader): GMInstrumentFamily {
-        val disc = r.readU8().toInt()
+        val disc = r.readVarint().toInt()
         val values = GMInstrumentFamily.entries
         if (disc < 0 || disc >= values.size) {
-            throw IllegalArgumentException(
-                "Unknown GMInstrumentFamily ordinal: $disc",
-            )
+            throw WireFormatException.InvalidCount(disc)
         }
         return values[disc]
     }

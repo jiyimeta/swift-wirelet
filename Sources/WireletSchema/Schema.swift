@@ -37,10 +37,17 @@ public enum WireType: Equatable, Sendable {
 public struct WireStruct: Equatable, Sendable {
     public var name: String
     public var fields: [WireField]
+    public var reservedTags: [UInt32]
     public var kotlinTarget: KotlinTarget
-    public init(name: String, fields: [WireField], kotlinTarget: KotlinTarget) {
+    public init(
+        name: String,
+        fields: [WireField],
+        reservedTags: [UInt32] = [],
+        kotlinTarget: KotlinTarget,
+    ) {
         self.name = name
         self.fields = fields
+        self.reservedTags = reservedTags
         self.kotlinTarget = kotlinTarget
     }
 }
@@ -48,9 +55,28 @@ public struct WireStruct: Equatable, Sendable {
 public struct WireField: Equatable, Sendable {
     public var name: String
     public var typeText: String
-    public init(name: String, typeText: String) {
+    /// For sugared `T?` / `Optional<T>` fields, the inner `T` rendered as
+    /// text. For non-optional fields equals `typeText`. Carries the same
+    /// distinction the Swift macro uses to drive Optional-aware emission.
+    public var wrappedTypeText: String
+    public var isOptional: Bool
+    /// TLV tag number for this field. Computed by the parser using the
+    /// same fill-gaps algorithm as `@WireFormat` macro expansion: explicit
+    /// `@WireFormatField(tag:)` wins; otherwise the smallest counter ≥ 1
+    /// not already in `reservedTags ∪ explicitTags`.
+    public var tag: UInt32
+    public init(
+        name: String,
+        typeText: String,
+        wrappedTypeText: String? = nil,
+        isOptional: Bool = false,
+        tag: UInt32 = 0,
+    ) {
         self.name = name
         self.typeText = typeText
+        self.wrappedTypeText = wrappedTypeText ?? typeText
+        self.isOptional = isOptional
+        self.tag = tag
     }
 }
 

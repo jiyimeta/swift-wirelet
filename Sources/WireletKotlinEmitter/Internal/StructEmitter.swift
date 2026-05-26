@@ -1,6 +1,22 @@
 import WireletSchema
 
 enum StructEmitter {
+    /// Emits a Kotlin codec object for a `@WireFormat`-annotated Swift
+    /// struct using the TLV wire format (matches Swift `@WireFormat`
+    /// macro emission, Task 2.6).
+    ///
+    /// Generated layout per codec:
+    /// * `WIRE_TYPE` — `WireType.LENGTH_DELIMITED`, used by parent codecs
+    ///   that need the field's tag wire-type.
+    /// * `encode(value)` — top-level: wraps payload in a varint length
+    ///   prefix (mirrors Swift `encodeToData()` for a `@WireFormat` struct).
+    /// * `encodePayload(value, w)` — writes raw per-field TLV records into
+    ///   `w` (no outer length prefix). Used by parent codecs that already
+    ///   wrote the field tag.
+    /// * `decode(data)` — reads the length-prefixed top-level encoding and
+    ///   parses it.
+    /// * `decodePayload(r)` — reads TLV fields from `r` until EOF, then
+    ///   builds the value, throwing on missing required fields.
     static func emit(
         _ wireStruct: WireStruct,
         kotlinName: String,
@@ -12,29 +28,38 @@ enum StructEmitter {
         let codecName = "\(kotlinName)Codec"
         let path = codecPackage.replacingOccurrences(of: ".", with: "/") + "/\(codecName).kt"
 
+        // Lines below are pre-indented with their target leading
+        // whitespace; we only need to join + insert into the template.
         let encodeLines = wireStruct.fields.flatMap { field in
-            emitFieldEncode(field: field, transform: nameTransform).map { "        \($0)" }
-        }.joined(separator: "\n")
+            emitFieldEncode(field: field, transform: nameTransform)
+        }
+        let encodeBody = encodeLines.map { "        \($0)" }.joined(separator: "\n")
 
-        let decodeLocals = wireStruct.fields.flatMap { field in
-            emitFieldDecode(field: field, transform: nameTransform).locals.map { "        \($0)" }
-        }.joined(separator: "\n")
+        let decodeLocals = wireStruct.fields.map { field in
+            let kotlinType = KotlinTypeMap.kotlinType(of: field.wrappedTypeText, nameTransform: nameTransform)
+            return "        var _\(field.name): \(kotlinType)? = null"
+        }
+        let decodeLocalsBody = decodeLocals.joined(separator: "\n")
 
-        let decodeBuild = wireStruct.fields.map { field in
-            "            \(field.name) = \(field.name),"
-        }.joined(separator: "\n")
+        let decodeCases = wireStruct.fields.map { field in
+            let readExpr = decodeExpr(typeText: field.wrappedTypeText, readerName: "r", transform: nameTransform)
+            return "                \(field.tag) -> _\(field.name) = \(readExpr)"
+        }
+        let decodeCasesBody = decodeCases.joined(separator: "\n")
 
-        // Collect non-primitive referenced field types (for `import` lines).
-        // Nested-type refs like "Outer.Inner" must be flattened to "Inner" —
-        // codecs and model classes are emitted at top level. We assume
-        // referenced model types live in this struct's own model package.
+        let constructorArgs = wireStruct.fields.map { field in
+            if field.isOptional {
+                return "            \(field.name) = _\(field.name),"
+            }
+            let wt = wireTypeRef(for: field.wrappedTypeText, transform: nameTransform)
+            return "            \(field.name) = _\(field.name) ?: throw WireFormatException.UnknownTag(\(field.tag), \(wt)),"
+        }
+        let constructorBody = constructorArgs.joined(separator: "\n")
+
+        // Collect imports.
         var referenced = Set<String>()
         for field in wireStruct.fields {
-            let elemType = isArrayType(field.typeText)
-                ? arrayElementType(field.typeText)
-                : field.typeText
-            guard KotlinTypeMap.primitive(elemType) == nil else { continue }
-            referenced.insert(nameTransform.apply(to: KotlinTypeMap.simpleName(of: elemType)))
+            collectReferenced(typeText: field.wrappedTypeText, into: &referenced, transform: nameTransform)
         }
         referenced.remove(kotlinName)
 
@@ -43,8 +68,18 @@ enum StructEmitter {
         if serializationPackage != codecPackage {
             importLines.append("import \(serializationPackage).BinaryReader")
             importLines.append("import \(serializationPackage).BinaryWriter")
+            importLines.append("import \(serializationPackage).WireFormatException")
+            importLines.append("import \(serializationPackage).WireType")
         }
         let allImports = importLines.joined(separator: "\n")
+
+        // Assemble the function bodies with their internal `\n`s where
+        // needed; the multi-line string literal handles the rest of the
+        // indentation.
+        let encodeBodyBlock = encodeBody.isEmpty ? "" : encodeBody + "\n"
+        let localsBlock = decodeLocalsBody.isEmpty ? "" : decodeLocalsBody + "\n"
+        let casesBlock = decodeCasesBody.isEmpty ? "" : decodeCasesBody + "\n"
+        let constructorBlock = constructorBody.isEmpty ? "" : constructorBody + "\n"
 
         let content = """
         // Auto-generated by emit-wirelet-kotlin. DO NOT EDIT.
@@ -53,26 +88,31 @@ enum StructEmitter {
         \(allImports)
 
         public object \(codecName) {
+            val WIRE_TYPE: WireType = WireType.LENGTH_DELIMITED
+
             fun encode(value: \(kotlinName)): ByteArray {
                 val w = BinaryWriter()
-                encodePayload(value, w)
+                w.writeLengthPrefixed { encodePayload(value, this) }
                 return w.toByteArray()
             }
 
             fun encodePayload(value: \(kotlinName), w: BinaryWriter) {
-        \(encodeLines)
-            }
+        \(encodeBodyBlock)    }
 
             fun decode(data: ByteArray): \(kotlinName) {
                 val r = BinaryReader(data)
-                return decodePayload(r)
+                return r.readLengthPrefixed { decodePayload(it) }
             }
 
             fun decodePayload(r: BinaryReader): \(kotlinName) {
-        \(decodeLocals)
+        \(localsBlock)        while (r.remaining > 0) {
+                    val (tag, wt) = r.readTag()
+                    when (tag) {
+        \(casesBlock)                else -> r.skipUnknownField(wt)
+                    }
+                }
                 return \(kotlinName)(
-        \(decodeBuild)
-                )
+        \(constructorBlock)        )
             }
         }
 
@@ -81,92 +121,182 @@ enum StructEmitter {
         return KotlinFile(relativePath: path, content: content)
     }
 
-    /// Returns one or more lines of code to encode `field` into `w`.
-    /// For scalar fields this is one line; for array fields it is two lines.
-    /// The loop variable is the field name with its trailing 's' dropped when
-    /// the name ends in 's' (e.g. "entries" → "entry"), otherwise the name itself.
+    /// Emits encode lines for one struct field. Required fields produce
+    /// `writeTag` + payload write. Optional fields wrap them in a
+    /// `?.let { ... }` guard so a nil value writes nothing.
     private static func emitFieldEncode(field: WireField, transform: NameTransform) -> [String] {
-        if isArrayType(field.typeText) {
-            let elemType = arrayElementType(field.typeText)
-            let loopVar = singularize(field.name)
-            if let primitive = KotlinTypeMap.primitive(elemType) {
-                return [
-                    "w.writeI32(value.\(field.name).size)",
-                    "for (\(loopVar) in value.\(field.name)) \(primitive.write(loopVar))",
-                ]
-            } else {
-                let elemCodec = transform.apply(to: KotlinTypeMap.simpleName(of: elemType)) + "Codec"
-                return [
-                    "w.writeI32(value.\(field.name).size)",
-                    "for (\(loopVar) in value.\(field.name)) \(elemCodec).encodePayload(\(loopVar), w)",
-                ]
+        let core = field.wrappedTypeText
+        let wt = wireTypeRef(for: core, transform: transform)
+
+        if field.isOptional {
+            var lines = ["value.\(field.name)?.let { v ->"]
+            lines.append("    w.writeTag(\(field.tag), \(wt))")
+            for ln in payloadWrite(typeText: core, valueExpr: "v", writerName: "w", transform: transform) {
+                lines.append("    \(ln)")
             }
+            lines.append("}")
+            return lines
         }
-        if let primitive = KotlinTypeMap.primitive(field.typeText) {
-            return [primitive.write("value.\(field.name)")]
-        }
-        let codecName = transform.apply(to: KotlinTypeMap.simpleName(of: field.typeText)) + "Codec"
-        return ["\(codecName).encodePayload(value.\(field.name), w)"]
+        var lines = ["w.writeTag(\(field.tag), \(wt))"]
+        lines.append(contentsOf: payloadWrite(
+            typeText: core,
+            valueExpr: "value.\(field.name)",
+            writerName: "w",
+            transform: transform,
+        ))
+        return lines
     }
 
-    /// Returns `(locals, buildAccess)` where `locals` is the list of lines
-    /// that declare local variables in `decodePayload`, and `buildAccess`
-    /// is the expression used in the constructor call for this field.
-    ///
-    /// For scalar fields: `locals = ["val <name> = <readExpr>"]`, `buildAccess = "<name>"`.
-    /// For array fields: `locals` is three lines that declare and fill an `ArrayList`,
-    /// and `buildAccess = "<name>"` (refers to the local ArrayList).
-    private static func emitFieldDecode(
-        field: WireField,
+    /// Returns one or more Kotlin lines that write the raw payload of a
+    /// value of `typeText` (no tag, no outer length-prefix wrap — though
+    /// the payload itself may include its own length prefix where the
+    /// type requires one, e.g. String / Data / Array / Dictionary).
+    static func payloadWrite(
+        typeText: String,
+        valueExpr: String,
+        writerName: String,
         transform: NameTransform,
-    ) -> (locals: [String], buildAccess: String) {
-        if isArrayType(field.typeText) {
-            let elemType = arrayElementType(field.typeText)
-            let kotlinElemType: String
-            let addExpr: String
-            if let primitive = KotlinTypeMap.primitive(elemType) {
-                kotlinElemType = primitive.kotlinType
-                addExpr = primitive.read
-            } else {
-                kotlinElemType = transform.apply(to: KotlinTypeMap.simpleName(of: elemType))
-                let elemCodec = kotlinElemType + "Codec"
-                addExpr = "\(elemCodec).decodePayload(r)"
-            }
-            let locals = [
-                "val count = r.readI32()",
-                "val \(field.name) = ArrayList<\(kotlinElemType)>(count)",
-                "repeat(count) { \(field.name).add(\(addExpr)) }",
-            ]
-            return (locals: locals, buildAccess: field.name)
+    ) -> [String] {
+        if let primitive = KotlinTypeMap.primitive(typeText) {
+            return [primitive.writePayload(valueExpr, writerName)]
         }
-        if let primitive = KotlinTypeMap.primitive(field.typeText) {
-            return (locals: ["val \(field.name) = \(primitive.read)"], buildAccess: field.name)
+        if let elem = KotlinTypeMap.arrayElementType(typeText) {
+            return arrayWrite(elemType: elem, valueExpr: valueExpr, writerName: writerName, transform: transform)
         }
-        let codecName = transform.apply(to: KotlinTypeMap.simpleName(of: field.typeText)) + "Codec"
-        return (
-            locals: ["val \(field.name) = \(codecName).decodePayload(r)"],
-            buildAccess: field.name,
-        )
+        if let (k, v) = KotlinTypeMap.dictionaryTypes(of: typeText) {
+            return dictionaryWrite(keyType: k, valueType: v, valueExpr: valueExpr, writerName: writerName, transform: transform)
+        }
+        let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
+        return ["\(codec).encodePayload(\(valueExpr), \(writerName))"]
     }
 
-    private static func isArrayType(_ typeText: String) -> Bool {
-        typeText.hasPrefix("[") && typeText.hasSuffix("]") && !typeText.contains(":")
+    /// Returns a Kotlin expression that reads a value of `typeText` from
+    /// `readerName`'s payload, advancing the cursor.
+    static func decodeExpr(
+        typeText: String,
+        readerName: String,
+        transform: NameTransform,
+    ) -> String {
+        if let primitive = KotlinTypeMap.primitive(typeText) {
+            return primitive.readPayload(readerName)
+        }
+        if let elem = KotlinTypeMap.arrayElementType(typeText) {
+            return arrayReadExpr(elemType: elem, readerName: readerName, transform: transform)
+        }
+        if let (k, v) = KotlinTypeMap.dictionaryTypes(of: typeText) {
+            return dictionaryReadExpr(keyType: k, valueType: v, readerName: readerName, transform: transform)
+        }
+        let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
+        return "\(codec).decodePayload(\(readerName))"
     }
 
-    private static func arrayElementType(_ typeText: String) -> String {
-        String(typeText.dropFirst().dropLast())
+    /// Returns the `WireType.<NAME>` reference to use in a `writeTag` call
+    /// for a value of `typeText`. Primitives map directly; arrays /
+    /// dictionaries are `LENGTH_DELIMITED`; user types defer to the
+    /// referenced codec's `WIRE_TYPE` constant.
+    static func wireTypeRef(for typeText: String, transform: NameTransform) -> String {
+        if let primitive = KotlinTypeMap.primitive(typeText) {
+            return primitive.wireType
+        }
+        if KotlinTypeMap.arrayElementType(typeText) != nil
+            || KotlinTypeMap.dictionaryTypes(of: typeText) != nil
+        {
+            return "WireType.LENGTH_DELIMITED"
+        }
+        let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
+        return "\(codec).WIRE_TYPE"
     }
 
-    /// Returns a simple singular form of a plural field name for use as a loop
-    /// variable. Handles the common English patterns needed for Swift field names:
-    /// `entries` → `entry`, `items` → `item`, `flags` → `flag`.
-    private static func singularize(_ name: String) -> String {
-        if name.hasSuffix("ies") {
-            return String(name.dropLast(3)) + "y"
+    // MARK: - Array helpers
+
+    private static func arrayWrite(
+        elemType: String,
+        valueExpr: String,
+        writerName: String,
+        transform: NameTransform,
+    ) -> [String] {
+        var lines: [String] = []
+        lines.append("\(writerName).writeLengthPrefixed {")
+        let inner = payloadWrite(typeText: elemType, valueExpr: "e", writerName: "this", transform: transform)
+        if inner.count == 1 {
+            lines.append("    for (e in \(valueExpr)) \(inner[0])")
+        } else {
+            lines.append("    for (e in \(valueExpr)) {")
+            for ln in inner { lines.append("        \(ln)") }
+            lines.append("    }")
         }
-        if name.hasSuffix("s") {
-            return String(name.dropLast())
+        lines.append("}")
+        return lines
+    }
+
+    private static func arrayReadExpr(
+        elemType: String,
+        readerName: String,
+        transform: NameTransform,
+    ) -> String {
+        let kotlinElem = KotlinTypeMap.kotlinType(of: elemType, nameTransform: transform)
+        let readOne = decodeExpr(typeText: elemType, readerName: "it", transform: transform)
+        return "\(readerName).readLengthPrefixed { val list = ArrayList<\(kotlinElem)>(); while (it.remaining > 0) list.add(\(readOne)); list }"
+    }
+
+    // MARK: - Dictionary helpers
+
+    /// Note: this emits a *non-canonical* dictionary encode (iteration
+    /// order = source `Map.entries`). Cross-language byte-identical
+    /// dictionaries require a canonical sort by encoded-key bytes; that
+    /// is tracked as a follow-up. The decode is symmetric with the
+    /// canonical encode shape, so a Swift-encoded payload still round-trips
+    /// correctly into Kotlin.
+    private static func dictionaryWrite(
+        keyType: String,
+        valueType: String,
+        valueExpr: String,
+        writerName: String,
+        transform: NameTransform,
+    ) -> [String] {
+        let writeK = payloadWrite(typeText: keyType, valueExpr: "e.key", writerName: "this", transform: transform).joined(separator: "; ")
+        let writeV = payloadWrite(typeText: valueType, valueExpr: "e.value", writerName: "this", transform: transform).joined(separator: "; ")
+        var lines: [String] = []
+        lines.append("\(writerName).writeLengthPrefixed {")
+        lines.append("    writeVarint((\(valueExpr)).size.toLong())")
+        lines.append("    for (e in \(valueExpr).entries) {")
+        lines.append("        \(writeK)")
+        lines.append("        \(writeV)")
+        lines.append("    }")
+        lines.append("}")
+        return lines
+    }
+
+    private static func dictionaryReadExpr(
+        keyType: String,
+        valueType: String,
+        readerName: String,
+        transform: NameTransform,
+    ) -> String {
+        let kk = KotlinTypeMap.kotlinType(of: keyType, nameTransform: transform)
+        let vv = KotlinTypeMap.kotlinType(of: valueType, nameTransform: transform)
+        let readK = decodeExpr(typeText: keyType, readerName: "it", transform: transform)
+        let readV = decodeExpr(typeText: valueType, readerName: "it", transform: transform)
+        return "\(readerName).readLengthPrefixed { val count = it.readVarint().toInt(); val m = LinkedHashMap<\(kk), \(vv)>(count); repeat(count) { val k = \(readK); val v = \(readV); m[k] = v }; m }"
+    }
+
+    // MARK: - Import collection
+
+    private static func collectReferenced(
+        typeText: String,
+        into out: inout Set<String>,
+        transform: NameTransform,
+    ) {
+        if KotlinTypeMap.primitive(typeText) != nil { return }
+        if let elem = KotlinTypeMap.arrayElementType(typeText) {
+            collectReferenced(typeText: elem, into: &out, transform: transform)
+            return
         }
-        return name
+        if let (k, v) = KotlinTypeMap.dictionaryTypes(of: typeText) {
+            collectReferenced(typeText: k, into: &out, transform: transform)
+            collectReferenced(typeText: v, into: &out, transform: transform)
+            return
+        }
+        out.insert(transform.apply(to: KotlinTypeMap.simpleName(of: typeText)))
     }
 }

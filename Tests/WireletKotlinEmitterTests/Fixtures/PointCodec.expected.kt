@@ -4,28 +4,40 @@ package io.example.audio.serialization
 import io.example.audio.model.Point
 
 public object PointCodec {
+    val WIRE_TYPE: WireType = WireType.LENGTH_DELIMITED
+
     fun encode(value: Point): ByteArray {
         val w = BinaryWriter()
-        encodePayload(value, w)
+        w.writeLengthPrefixed { encodePayload(value, this) }
         return w.toByteArray()
     }
 
     fun encodePayload(value: Point, w: BinaryWriter) {
-        w.writeI32(value.x)
-        w.writeI32(value.y)
+        w.writeTag(1, WireType.VARINT)
+        w.writeZigZagVarint((value.x).toLong())
+        w.writeTag(2, WireType.VARINT)
+        w.writeZigZagVarint((value.y).toLong())
     }
 
     fun decode(data: ByteArray): Point {
         val r = BinaryReader(data)
-        return decodePayload(r)
+        return r.readLengthPrefixed { decodePayload(it) }
     }
 
     fun decodePayload(r: BinaryReader): Point {
-        val x = r.readI32()
-        val y = r.readI32()
+        var _x: Int? = null
+        var _y: Int? = null
+        while (r.remaining > 0) {
+            val (tag, wt) = r.readTag()
+            when (tag) {
+                1 -> _x = r.readZigZagVarint().toInt()
+                2 -> _y = r.readZigZagVarint().toInt()
+                else -> r.skipUnknownField(wt)
+            }
+        }
         return Point(
-            x = x,
-            y = y,
+            x = _x ?: throw WireFormatException.UnknownTag(1, WireType.VARINT),
+            y = _y ?: throw WireFormatException.UnknownTag(2, WireType.VARINT),
         )
     }
 }

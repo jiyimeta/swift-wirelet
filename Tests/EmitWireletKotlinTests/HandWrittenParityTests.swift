@@ -17,8 +17,8 @@ import WireletSchema
         .struct(WireStruct(
             name: "MetronomeBeatWire",
             fields: [
-                WireField(name: "tick", typeText: "Int64"),
-                WireField(name: "isDownbeat", typeText: "Bool"),
+                WireField(name: "tick", typeText: "Int64", tag: 1),
+                WireField(name: "isDownbeat", typeText: "Bool", tag: 2),
             ],
             kotlinTarget: .auto,
         )),
@@ -36,9 +36,16 @@ import WireletSchema
     // *structure* of the generated source. Failures here mean
     // someone changed the emitter shape; rebaseline only if the new
     // shape still passes the Kotlin-side unit tests in Phase 2.
+    //
+    // The codec is TLV-form (Task 2.10): per-field writeTag + payload,
+    // and a tag-loop on decode. Encoding `Int64` uses zig-zag varint
+    // (matching the Swift `Int64` conformance); `Bool` uses plain
+    // varint (0 / 1).
     let content = files[0].content
-    #expect(content.contains("w.writeI64(value.tick)"))
-    #expect(content.contains("w.writeU8(if (value.isDownbeat) 1u else 0u)"))
-    #expect(content.contains("tick = r.readI64()"))
-    #expect(content.contains("isDownbeat = r.readU8() != 0u.toUByte()"))
+    #expect(content.contains("w.writeTag(1, WireType.VARINT)"))
+    #expect(content.contains("w.writeZigZagVarint(value.tick)"))
+    #expect(content.contains("w.writeTag(2, WireType.VARINT)"))
+    #expect(content.contains("w.writeVarint(if (value.isDownbeat) 1L else 0L)"))
+    #expect(content.contains("1 -> _tick = r.readZigZagVarint()"))
+    #expect(content.contains("2 -> _isDownbeat = r.readVarint() != 0L"))
 }

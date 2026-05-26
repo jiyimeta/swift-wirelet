@@ -8,10 +8,10 @@ import WireletSchema
         .struct(WireStruct(
             name: "SMuFLMetricsWire",
             fields: [
-                WireField(name: "magic", typeText: "UInt32"),
-                WireField(name: "version", typeText: "UInt32"),
-                WireField(name: "referenceSize", typeText: "Double"),
-                WireField(name: "entries", typeText: "[SMuFLMetricsEntryWire]"),
+                WireField(name: "magic", typeText: "UInt32", tag: 1),
+                WireField(name: "version", typeText: "UInt32", tag: 2),
+                WireField(name: "referenceSize", typeText: "Double", tag: 3),
+                WireField(name: "entries", typeText: "[SMuFLMetricsEntryWire]", tag: 4),
             ],
             kotlinTarget: .auto,
         )),
@@ -49,8 +49,8 @@ import WireletSchema
         .struct(WireStruct(
             name: "Sample",
             fields: [
-                WireField(name: "scalar", typeText: "Outer.Inner"),
-                WireField(name: "items", typeText: "[Outer.Inner]"),
+                WireField(name: "scalar", typeText: "Outer.Inner", tag: 1),
+                WireField(name: "items", typeText: "[Outer.Inner]", tag: 2),
             ],
             kotlinTarget: .auto,
         )),
@@ -75,8 +75,8 @@ import WireletSchema
         .struct(WireStruct(
             name: "PointWire",
             fields: [
-                WireField(name: "x", typeText: "Int32"),
-                WireField(name: "y", typeText: "Int32"),
+                WireField(name: "x", typeText: "Int32", tag: 1),
+                WireField(name: "y", typeText: "Int32", tag: 2),
             ],
             kotlinTarget: .auto,
         )),

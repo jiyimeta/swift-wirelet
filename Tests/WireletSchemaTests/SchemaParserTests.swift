@@ -19,8 +19,8 @@ import Testing
     }
     #expect(s.name == "PointWire")
     #expect(s.fields == [
-        WireField(name: "x", typeText: "Int32"),
-        WireField(name: "y", typeText: "Int32"),
+        WireField(name: "x", typeText: "Int32", tag: 1),
+        WireField(name: "y", typeText: "Int32", tag: 2),
     ])
     #expect(s.kotlinTarget == .auto)
 }
@@ -88,8 +88,33 @@ import Testing
     }
     #expect(s.name == "DecodedFrame")
     #expect(s.fields == [
-        WireField(name: "x", typeText: "Double"),
-        WireField(name: "y", typeText: "Double"),
+        WireField(name: "x", typeText: "Double", tag: 1),
+        WireField(name: "y", typeText: "Double", tag: 2),
+    ])
+}
+
+@Test func parsesTagAssignmentAndOptional() throws {
+    let url = try #require(Bundle.module.url(
+        forResource: "TaggedStruct",
+        withExtension: "swift",
+        subdirectory: "Fixtures",
+    ))
+    let source = try String(contentsOf: url, encoding: .utf8)
+
+    let schema = SchemaParser.parse(source: source, fileName: "TaggedStruct.swift")
+
+    #expect(schema.types.count == 1)
+    guard case let .struct(s) = schema.types[0] else {
+        Issue.record("Expected struct, got \(schema.types[0])")
+        return
+    }
+    #expect(s.name == "TaggedRecord")
+    #expect(s.reservedTags == [2, 4])
+    #expect(s.fields == [
+        WireField(name: "a", typeText: "Int32", tag: 1),
+        WireField(name: "b", typeText: "Int32", tag: 7),
+        WireField(name: "c", typeText: "Int32?", wrappedTypeText: "Int32", isOptional: true, tag: 3),
+        WireField(name: "d", typeText: "Int32", tag: 5),
     ])
 }
 

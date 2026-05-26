@@ -1,6 +1,18 @@
 import WireletSchema
 
 enum EnumEmitter {
+    /// Emits a Kotlin codec for a `@WireFormatEnum` raw-value enum.
+    ///
+    /// The Swift macro forwards encoding to the raw type's
+    /// `encodePayload(into:)`. For the integer raws this is a varint;
+    /// raw-string is varint-prefixed UTF-8 bytes. The Kotlin emitter
+    /// targets integer raws (the only kind exercised by current
+    /// fixtures) and encodes the case's declaration-order index (which
+    /// matches `rawValue` for the canonical
+    /// `enum: UInt8 { case a, b, c }` shape).
+    ///
+    /// `WIRE_TYPE` is `WireType.VARINT` so parent codecs that reference
+    /// this enum as a field type get the correct tag wire-type.
     static func emit(
         _ rawEnum: WireRawEnum,
         kotlinName: String,
@@ -11,12 +23,12 @@ enum EnumEmitter {
         let codecName = "\(kotlinName)Codec"
         let path = codecPackage.replacingOccurrences(of: ".", with: "/") + "/\(codecName).kt"
 
-        // Omit the serialization imports when BinaryReader/Writer live in
-        // the same package as the codec (they are automatically in scope).
         let serializationImports = serializationPackage == codecPackage ? "" : """
 
         import \(serializationPackage).BinaryReader
         import \(serializationPackage).BinaryWriter
+        import \(serializationPackage).WireFormatException
+        import \(serializationPackage).WireType
         """
 
         let content = """
@@ -26,6 +38,8 @@ enum EnumEmitter {
         import \(modelPackage).\(kotlinName)\(serializationImports)
 
         public object \(codecName) {
+            val WIRE_TYPE: WireType = WireType.VARINT
+
             fun encode(value: \(kotlinName)): ByteArray {
                 val w = BinaryWriter()
                 encodePayload(value, w)
@@ -33,7 +47,7 @@ enum EnumEmitter {
             }
 
             fun encodePayload(value: \(kotlinName), w: BinaryWriter) {
-                w.writeU8(value.ordinal.toUByte())
+                w.writeVarint(value.ordinal.toLong())
             }
 
             fun decode(data: ByteArray): \(kotlinName) {
@@ -42,12 +56,10 @@ enum EnumEmitter {
             }
 
             fun decodePayload(r: BinaryReader): \(kotlinName) {
-                val disc = r.readU8().toInt()
+                val disc = r.readVarint().toInt()
                 val values = \(kotlinName).entries
                 if (disc < 0 || disc >= values.size) {
-                    throw IllegalArgumentException(
-                        "Unknown \(kotlinName) ordinal: $disc",
-                    )
+                    throw WireFormatException.InvalidCount(disc)
                 }
                 return values[disc]
             }

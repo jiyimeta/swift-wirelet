@@ -1,28 +1,128 @@
+import WireletSchema
+
 enum KotlinTypeMap {
-    /// Returns `(kotlinType, readerCall, writerCall(_:))` for a Swift
-    /// primitive type. Calls use `r`/`w` as the cursor variable names.
-    static func primitive(_ swiftType: String) -> (kotlinType: String, read: String, write: (String) -> String)? {
+    /// Plan for emitting one TLV field whose Swift type maps to a Kotlin
+    /// primitive. The emitter uses these to render `writeTag` + payload
+    /// snippets on the encode side and the per-tag case body on the
+    /// decode side.
+    struct Primitive {
+        /// Kotlin spelling of the type (e.g. `Int`, `Long`, `Boolean`,
+        /// `ByteArray`).
+        let kotlinType: String
+        /// `WireType.<NAME>` constant used in the tag header.
+        let wireType: String
+        /// Renders the payload-write expression for `value` (no tag, no
+        /// outer length-prefix wrap — but writes its own length where the
+        /// payload requires it, e.g. for String / Data).
+        let writePayload: (_ valueExpr: String, _ writerName: String) -> String
+        /// Renders the payload-read expression that yields the Kotlin
+        /// value from `<readerName>`.
+        let readPayload: (_ readerName: String) -> String
+    }
+
+    /// Returns the TLV plan for a Swift primitive type, or `nil` for
+    /// non-primitive (structured / user-defined) types.
+    static func primitive(_ swiftType: String) -> Primitive? {
         switch swiftType {
-        case "UInt8": return ("UByte", "r.readU8()", { "w.writeU8(\($0))" })
-        case "Int8": return ("Byte", "r.readI8()", { "w.writeI8(\($0))" })
-        case "UInt16": return ("UShort", "r.readU16()", { "w.writeU16(\($0))" })
-        case "Int16": return ("Short", "r.readI16()", { "w.writeI16(\($0))" })
-        case "UInt32": return ("UInt", "r.readU32()", { "w.writeU32(\($0))" })
-        case "Int32": return ("Int", "r.readI32()", { "w.writeI32(\($0))" })
-        case "UInt64": return ("ULong", "r.readU64()", { "w.writeU64(\($0))" })
-        case "Int64": return ("Long", "r.readI64()", { "w.writeI64(\($0))" })
-        case "Float": return ("Float", "r.readF32()", { "w.writeF32(\($0))" })
-        case "Double": return ("Double", "r.readF64()", { "w.writeF64(\($0))" })
-        case "Bool": return ("Boolean", "r.readU8() != 0u.toUByte()", { "w.writeU8(if (\($0)) 1u else 0u)" })
-        // NOTE: BinaryReader/BinaryWriter in the existing Kotlin codebase do not yet
-        // have readString()/writeString() methods (as of 2026-05-23). No current
-        // @WireFormat type uses a raw String field, so this does not block codegen.
-        // Task 17 will add readString/writeString and verify end-to-end.
-        case "String": return ("String", "r.readString()", { "w.writeString(\($0))" })
-        // `Data` maps to a length-prefixed `ByteArray` on the Kotlin side.
-        // BinaryReader/BinaryWriter readBytes/writeBytes helpers handle
-        // the varint length + raw byte payload; see Task 2.10 goldens.
-        case "Data": return ("ByteArray", "r.readBytes()", { "w.writeBytes(\($0))" })
+        case "Int8":
+            return Primitive(
+                kotlinType: "Byte",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeZigZagVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readZigZagVarint().toByte()" },
+            )
+        case "Int16":
+            return Primitive(
+                kotlinType: "Short",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeZigZagVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readZigZagVarint().toShort()" },
+            )
+        case "Int32":
+            return Primitive(
+                kotlinType: "Int",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeZigZagVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readZigZagVarint().toInt()" },
+            )
+        case "Int64":
+            return Primitive(
+                kotlinType: "Long",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeZigZagVarint(\(v))" },
+                readPayload: { r in "\(r).readZigZagVarint()" },
+            )
+        case "UInt8":
+            return Primitive(
+                kotlinType: "UByte",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readVarint().toUByte()" },
+            )
+        case "UInt16":
+            return Primitive(
+                kotlinType: "UShort",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readVarint().toUShort()" },
+            )
+        case "UInt32":
+            return Primitive(
+                kotlinType: "UInt",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readVarint().toUInt()" },
+            )
+        case "UInt64":
+            return Primitive(
+                kotlinType: "ULong",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeVarint((\(v)).toLong())" },
+                readPayload: { r in "\(r).readVarint().toULong()" },
+            )
+        case "Float":
+            return Primitive(
+                kotlinType: "Float",
+                wireType: "WireType.FIXED32",
+                writePayload: { v, w in "\(w).writeF32(\(v))" },
+                readPayload: { r in "\(r).readF32()" },
+            )
+        case "Double":
+            return Primitive(
+                kotlinType: "Double",
+                wireType: "WireType.FIXED64",
+                writePayload: { v, w in "\(w).writeF64(\(v))" },
+                readPayload: { r in "\(r).readF64()" },
+            )
+        case "Bool":
+            return Primitive(
+                kotlinType: "Boolean",
+                wireType: "WireType.VARINT",
+                writePayload: { v, w in "\(w).writeVarint(if (\(v)) 1L else 0L)" },
+                readPayload: { r in "\(r).readVarint() != 0L" },
+            )
+        case "String":
+            return Primitive(
+                kotlinType: "String",
+                wireType: "WireType.LENGTH_DELIMITED",
+                writePayload: { v, w in
+                    "\(w).writeLengthPrefixed { writeBytes((\(v)).toByteArray(Charsets.UTF_8)) }"
+                },
+                readPayload: { r in
+                    "\(r).readLengthPrefixed { it.readBytes(it.remaining).toString(Charsets.UTF_8) }"
+                },
+            )
+        case "Data":
+            return Primitive(
+                kotlinType: "ByteArray",
+                wireType: "WireType.LENGTH_DELIMITED",
+                writePayload: { v, w in
+                    "\(w).writeLengthPrefixed { writeBytes(\(v)) }"
+                },
+                readPayload: { r in
+                    "\(r).readLengthPrefixed { it.readBytes(it.remaining) }"
+                },
+            )
         default:
             return nil
         }
@@ -37,17 +137,23 @@ enum KotlinTypeMap {
         return String(typeText[typeText.index(after: lastDot)...])
     }
 
+    /// Returns the element type for an `[T]` (sugared array) type text, or
+    /// `nil` for any non-array shape.
+    static func arrayElementType(_ typeText: String) -> String? {
+        let trimmed = typeText.trimmingCharacters(in: .whitespaces)
+        guard
+            trimmed.hasPrefix("["),
+            trimmed.hasSuffix("]"),
+            !trimmed.contains(":")
+        else { return nil }
+        return String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+    }
+
     /// If `typeText` is a Swift dictionary type (`[K: V]` shorthand or
     /// `Dictionary<K, V>`), returns `(keyType, valueType)` as the inner
     /// Swift type texts. Returns `nil` otherwise.
-    ///
-    /// Used by the struct emitter (Task 2.10) to map dictionary fields to
-    /// Kotlin `Map<K_Kotlin, V_Kotlin>`. This method only parses the type
-    /// surface; the caller is responsible for resolving the inner types
-    /// (e.g. via `primitive(_:)` or by treating them as referenced codecs).
     static func dictionaryTypes(of typeText: String) -> (keyType: String, valueType: String)? {
         let trimmed = typeText.trimmingCharacters(in: .whitespaces)
-        // [K: V] shorthand
         if trimmed.hasPrefix("["), trimmed.hasSuffix("]") {
             let inner = String(trimmed.dropFirst().dropLast())
             guard let (k, v) = splitTopLevel(inner, on: ":") else { return nil }
@@ -56,7 +162,6 @@ enum KotlinTypeMap {
                 v.trimmingCharacters(in: .whitespaces),
             )
         }
-        // Dictionary<K, V> longhand
         if trimmed.hasPrefix("Dictionary<"), trimmed.hasSuffix(">") {
             let inner = String(trimmed.dropFirst("Dictionary<".count).dropLast())
             guard let (k, v) = splitTopLevel(inner, on: ",") else { return nil }
@@ -70,7 +175,7 @@ enum KotlinTypeMap {
 
     /// Splits `s` on the first occurrence of `separator` that is at bracket
     /// depth 0 (so nested generic / dictionary types are preserved).
-    private static func splitTopLevel(_ s: String, on separator: Character) -> (String, String)? {
+    static func splitTopLevel(_ s: String, on separator: Character) -> (String, String)? {
         var depth = 0
         for index in s.indices {
             let character = s[index]
@@ -87,18 +192,20 @@ enum KotlinTypeMap {
         return nil
     }
 
-    /// Returns the Kotlin rendering of a Swift dictionary field type.
-    /// `[K: V]` → `Map<K_Kotlin, V_Kotlin>`. Both inner types must resolve
-    /// to either a primitive (via `primitive(_:)`) or a referenced model
-    /// class — the caller supplies the resolver via `kotlinName(of:)`.
-    ///
-    /// This is purely the *type* mapping. The encode / decode emit logic
-    /// is wired up in Task 2.10.
-    static func dictionaryKotlinType(
-        of typeText: String,
-        kotlinName: (String) -> String,
-    ) -> String? {
-        guard let (k, v) = dictionaryTypes(of: typeText) else { return nil }
-        return "Map<\(kotlinName(k)), \(kotlinName(v))>"
+    /// Returns the Kotlin rendering of a value of `swiftType`, transforming
+    /// nested-type references via `nameTransform`. Primitives map directly;
+    /// arrays / dictionaries recurse; user types use the transformed simple
+    /// name.
+    static func kotlinType(of swiftType: String, nameTransform: NameTransform) -> String {
+        if let primitive = primitive(swiftType) {
+            return primitive.kotlinType
+        }
+        if let elem = arrayElementType(swiftType) {
+            return "List<\(kotlinType(of: elem, nameTransform: nameTransform))>"
+        }
+        if let (k, v) = dictionaryTypes(of: swiftType) {
+            return "Map<\(kotlinType(of: k, nameTransform: nameTransform)), \(kotlinType(of: v, nameTransform: nameTransform))>"
+        }
+        return nameTransform.apply(to: simpleName(of: swiftType))
     }
 }

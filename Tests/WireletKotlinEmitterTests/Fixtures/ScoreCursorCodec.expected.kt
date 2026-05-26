@@ -5,43 +5,67 @@ import io.example.audio.model.ScoreCursor
 import io.example.audio.model.ScoreItemID
 
 public object ScoreCursorCodec {
+    val WIRE_TYPE: WireType = WireType.LENGTH_DELIMITED
+
     fun encode(value: ScoreCursor): ByteArray {
         val w = BinaryWriter()
-        encodePayload(value, w)
+        w.writeLengthPrefixed { encodePayload(value, this) }
         return w.toByteArray()
     }
 
     fun encodePayload(value: ScoreCursor, w: BinaryWriter) {
         when (value) {
             is ScoreCursor.Item -> {
-                w.writeU8(0u)
+                w.writeVarint(0L)
+                w.writeTag(1, ScoreItemIDCodec.WIRE_TYPE)
                 ScoreItemIDCodec.encodePayload(value.arg0, w)
             }
             is ScoreCursor.Beat -> {
-                w.writeU8(1u)
-                w.writeI32(value.measureIndex)
-                w.writeI32(value.tickInMeasure)
+                w.writeVarint(1L)
+                w.writeTag(1, WireType.VARINT)
+                w.writeZigZagVarint((value.measureIndex).toLong())
+                w.writeTag(2, WireType.VARINT)
+                w.writeZigZagVarint((value.tickInMeasure).toLong())
             }
         }
     }
 
     fun decode(data: ByteArray): ScoreCursor {
         val r = BinaryReader(data)
-        return decodePayload(r)
+        return r.readLengthPrefixed { decodePayload(it) }
     }
 
     fun decodePayload(r: BinaryReader): ScoreCursor {
-        return when (val disc = r.readU8().toInt()) {
-                    0 -> ScoreCursor.Item(
-                        arg0 = ScoreItemIDCodec.decodePayload(r),
-                    )
-                    1 -> ScoreCursor.Beat(
-                        measureIndex = r.readI32(),
-                        tickInMeasure = r.readI32(),
-                    )
-            else -> throw IllegalArgumentException(
-                "Unknown ScoreCursor discriminator: $disc",
-            )
+        val disc = r.readVarint()
+        return when (disc) {
+            0L -> {
+                var _arg0: ScoreItemID? = null
+                while (r.remaining > 0) {
+                    val (tag, wt) = r.readTag()
+                    when (tag) {
+                        1 -> _arg0 = ScoreItemIDCodec.decodePayload(r)
+                        else -> r.skipUnknownField(wt)
+                    }
+                }
+                val arg0 = _arg0 ?: throw WireFormatException.UnknownTag(1, ScoreItemIDCodec.WIRE_TYPE)
+                ScoreCursor.Item(arg0 = arg0)
+            }
+            1L -> {
+                var _arg0: Int? = null
+                var _arg1: Int? = null
+                while (r.remaining > 0) {
+                    val (tag, wt) = r.readTag()
+                    when (tag) {
+                        1 -> _arg0 = r.readZigZagVarint().toInt()
+                        2 -> _arg1 = r.readZigZagVarint().toInt()
+                        else -> r.skipUnknownField(wt)
+                    }
+                }
+                val arg0 = _arg0 ?: throw WireFormatException.UnknownTag(1, WireType.VARINT)
+                val arg1 = _arg1 ?: throw WireFormatException.UnknownTag(2, WireType.VARINT)
+                ScoreCursor.Beat(measureIndex = arg0, tickInMeasure = arg1)
+            }
+            else -> throw WireFormatException.UnknownChoiceDiscriminator(disc.toInt())
         }
     }
 }
