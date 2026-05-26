@@ -152,6 +152,46 @@ public macro WireFormat(kotlin: KotlinTarget) = #externalMacro(
     type: "WireFormatMacro",
 )
 
+/// Variant that declares a list of tag numbers no field of this struct may
+/// use. Useful when migrating a wire schema where some legacy tags should
+/// not be re-emitted by implicit assignment.
+@attached(
+    extension,
+    conformances: WireFormatEncodable, WireFormatDecodable,
+    names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
+           named(init(from:)), named(init(decodingPayload:))
+)
+public macro WireFormat(reservedTags: [UInt32]) = #externalMacro(
+    module: "WireletMacros",
+    type: "WireFormatMacro",
+)
+
+@attached(
+    extension,
+    conformances: WireFormatEncodable, WireFormatDecodable,
+    names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
+           named(init(from:)), named(init(decodingPayload:))
+)
+public macro WireFormat(reservedTags: [UInt32], kotlin: KotlinTarget) = #externalMacro(
+    module: "WireletMacros",
+    type: "WireFormatMacro",
+)
+
+/// Peer macro attached to a stored property inside a `@WireFormat` struct
+/// to assign an explicit TLV tag. Properties without this attribute receive
+/// implicit tags 1, 2, 3, ... in declaration order, skipping any explicit
+/// or reserved tag values.
+///
+/// Tag value must be > 0 and must not appear in the enclosing
+/// `@WireFormat(reservedTags:)` list. Two properties may not share the
+/// same explicit tag — either condition is reported as a compile-time
+/// error by the enclosing `@WireFormat` macro.
+@attached(peer)
+public macro WireFormatField(tag: UInt32) = #externalMacro(
+    module: "WireletMacros",
+    type: "WireFormatFieldMacro",
+)
+
 /// Attach to a `CaseIterable & Equatable` enum to synthesize a `WireFormat`
 /// conformance whose encoding is the case's `allCases` ordinal as a single
 /// `UInt8`. Caps at 256 cases.

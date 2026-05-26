@@ -6,8 +6,10 @@ import SwiftSyntaxMacros
 /// Expansion of `@WireFormat` on a struct: emits one extension that adds
 /// `WireFormatEncodable` + `WireFormatDecodable` conformance whose encoded
 /// layout is a TLV (tag / length / value) record. Implicit field tags are
-/// assigned 1, 2, 3, ... in declaration order. The struct's wire type is
-/// `.lengthDelimited` — `encode(into:)` wraps `encodePayload(into:)` in a
+/// assigned 1, 2, 3, ... in declaration order, skipping any explicit
+/// (`@WireFormatField(tag:)`) or reserved (`@WireFormat(reservedTags:)`)
+/// tag values. The struct's wire type is `.lengthDelimited` —
+/// `encode(into:)` wraps `encodePayload(into:)` in a
 /// `writer.writeLengthPrefixed { ... }` so a nested struct is
 /// self-delimiting from its enclosing record.
 public struct WireFormatMacro: ExtensionMacro {
@@ -26,7 +28,12 @@ public struct WireFormatMacro: ExtensionMacro {
             return []
         }
 
-        let properties = collectStoredProperties(of: structDecl, context: context)
+        let reservedTags = parseReservedTags(from: node)
+        let properties = collectStoredProperties(
+            of: structDecl,
+            reservedTags: reservedTags,
+            context: context,
+        )
 
         let encodePayloadBody = renderEncodePayloadBody(properties: properties)
         let decodePayloadBody = renderDecodePayloadBody(properties: properties)
@@ -67,7 +74,7 @@ public struct WireFormatMacro: ExtensionMacro {
     // MARK: - Body rendering
 
     private static func renderEncodePayloadBody(
-        properties: [(name: String, typeText: String, tag: Int)],
+        properties: [(name: String, typeText: String, tag: UInt32)],
     ) -> String {
         if properties.isEmpty {
             return ""
@@ -83,7 +90,7 @@ public struct WireFormatMacro: ExtensionMacro {
     }
 
     private static func renderDecodePayloadBody(
-        properties: [(name: String, typeText: String, tag: Int)],
+        properties: [(name: String, typeText: String, tag: UInt32)],
     ) -> String {
         if properties.isEmpty {
             return ""
@@ -112,14 +119,69 @@ public struct WireFormatMacro: ExtensionMacro {
         return lines.joined(separator: "\n        ")
     }
 
+    // MARK: - Attribute argument parsing
+
+    /// Returns the set of reserved tag numbers declared on the
+    /// `@WireFormat(reservedTags: [...])` attribute. Returns an empty set
+    /// when the argument is absent or unparseable.
+    private static func parseReservedTags(from attribute: AttributeSyntax) -> Set<UInt32> {
+        guard case let .argumentList(args) = attribute.arguments else {
+            return []
+        }
+        for arg in args where arg.label?.text == "reservedTags" {
+            guard let array = arg.expression.as(ArrayExprSyntax.self) else {
+                return []
+            }
+            var out = Set<UInt32>()
+            for element in array.elements {
+                if let intLit = element.expression.as(IntegerLiteralExprSyntax.self),
+                   let value = UInt32(intLit.literal.text)
+                {
+                    out.insert(value)
+                }
+            }
+            return out
+        }
+        return []
+    }
+
+    /// Extracts the `tag:` argument from a `@WireFormatField(tag: N)`
+    /// attribute, if present on the property. Returns `nil` when the
+    /// attribute is absent or has no parseable integer literal.
+    private static func explicitTag(of varDecl: VariableDeclSyntax) -> UInt32? {
+        for attr in varDecl.attributes {
+            guard let attribute = attr.as(AttributeSyntax.self) else { continue }
+            guard let identType = attribute.attributeName.as(IdentifierTypeSyntax.self) else {
+                continue
+            }
+            if identType.name.text != "WireFormatField" { continue }
+            guard case let .argumentList(args) = attribute.arguments else { continue }
+            for arg in args where arg.label?.text == "tag" {
+                if let intLit = arg.expression.as(IntegerLiteralExprSyntax.self),
+                   let value = UInt32(intLit.literal.text)
+                {
+                    return value
+                }
+            }
+        }
+        return nil
+    }
+
     // MARK: - Property collection
 
     private static func collectStoredProperties(
         of structDecl: StructDeclSyntax,
+        reservedTags: Set<UInt32>,
         context: some MacroExpansionContext,
-    ) -> [(name: String, typeText: String, tag: Int)] {
-        var out: [(name: String, typeText: String, tag: Int)] = []
-        var nextTag = 1
+    ) -> [(name: String, typeText: String, tag: UInt32)] {
+        // Pass 1: gather (name, type, explicit tag?) for every stored property.
+        typealias Raw = (
+            name: String,
+            typeText: String,
+            explicitTag: UInt32?,
+            varDecl: VariableDeclSyntax
+        )
+        var raws: [Raw] = []
 
         for member in structDecl.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
@@ -128,6 +190,8 @@ public struct WireFormatMacro: ExtensionMacro {
                 modifier.name.text == "static" || modifier.name.text == "class"
             }
             if isStatic { continue }
+
+            let explicit = explicitTag(of: varDecl)
 
             for binding in varDecl.bindings {
                 if isComputed(binding: binding) { continue }
@@ -146,9 +210,60 @@ public struct WireFormatMacro: ExtensionMacro {
                 }
 
                 let typeText = typeAnnotation.type.trimmedDescription
-                out.append((name: name, typeText: typeText, tag: nextTag))
-                nextTag += 1
+                raws.append((
+                    name: name,
+                    typeText: typeText,
+                    explicitTag: explicit,
+                    varDecl: varDecl
+                ))
             }
+        }
+
+        // Pass 2: validate explicit tags, detect conflicts + reserved-use + zero.
+        var seenExplicit: Set<UInt32> = []
+        var conflictReported: Set<UInt32> = []
+        for raw in raws {
+            guard let tag = raw.explicitTag else { continue }
+            if tag == 0 {
+                context.diagnose(Diagnostic(
+                    node: Syntax(raw.varDecl),
+                    message: WireFormatDiagnostic.tagOutOfRange(fieldName: raw.name),
+                ))
+                continue
+            }
+            if reservedTags.contains(tag) {
+                context.diagnose(Diagnostic(
+                    node: Syntax(raw.varDecl),
+                    message: WireFormatDiagnostic.reservedTagUsed(tag: tag, fieldName: raw.name),
+                ))
+            }
+            if seenExplicit.contains(tag), !conflictReported.contains(tag) {
+                context.diagnose(Diagnostic(
+                    node: Syntax(raw.varDecl),
+                    message: WireFormatDiagnostic.tagConflict(tag: tag),
+                ))
+                conflictReported.insert(tag)
+            }
+            seenExplicit.insert(tag)
+        }
+
+        // Pass 3: assign tags. Explicit tags use their declared value (even
+        // if invalid — diagnostics already fired, but emitting the body
+        // keeps downstream errors localized to the macro's diagnostic).
+        // Implicit tags use the smallest UInt32 ≥ counter that is neither
+        // in seenExplicit nor in reservedTags.
+        var out: [(name: String, typeText: String, tag: UInt32)] = []
+        var counter: UInt32 = 1
+        for raw in raws {
+            if let tag = raw.explicitTag {
+                out.append((name: raw.name, typeText: raw.typeText, tag: tag))
+                continue
+            }
+            while seenExplicit.contains(counter) || reservedTags.contains(counter) || counter == 0 {
+                counter &+= 1
+            }
+            out.append((name: raw.name, typeText: raw.typeText, tag: counter))
+            counter &+= 1
         }
         return out
     }
