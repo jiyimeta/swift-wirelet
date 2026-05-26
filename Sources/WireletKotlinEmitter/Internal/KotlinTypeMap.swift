@@ -36,4 +36,69 @@ enum KotlinTypeMap {
         guard let lastDot = typeText.lastIndex(of: ".") else { return typeText }
         return String(typeText[typeText.index(after: lastDot)...])
     }
+
+    /// If `typeText` is a Swift dictionary type (`[K: V]` shorthand or
+    /// `Dictionary<K, V>`), returns `(keyType, valueType)` as the inner
+    /// Swift type texts. Returns `nil` otherwise.
+    ///
+    /// Used by the struct emitter (Task 2.10) to map dictionary fields to
+    /// Kotlin `Map<K_Kotlin, V_Kotlin>`. This method only parses the type
+    /// surface; the caller is responsible for resolving the inner types
+    /// (e.g. via `primitive(_:)` or by treating them as referenced codecs).
+    static func dictionaryTypes(of typeText: String) -> (keyType: String, valueType: String)? {
+        let trimmed = typeText.trimmingCharacters(in: .whitespaces)
+        // [K: V] shorthand
+        if trimmed.hasPrefix("["), trimmed.hasSuffix("]") {
+            let inner = String(trimmed.dropFirst().dropLast())
+            guard let (k, v) = splitTopLevel(inner, on: ":") else { return nil }
+            return (
+                k.trimmingCharacters(in: .whitespaces),
+                v.trimmingCharacters(in: .whitespaces),
+            )
+        }
+        // Dictionary<K, V> longhand
+        if trimmed.hasPrefix("Dictionary<"), trimmed.hasSuffix(">") {
+            let inner = String(trimmed.dropFirst("Dictionary<".count).dropLast())
+            guard let (k, v) = splitTopLevel(inner, on: ",") else { return nil }
+            return (
+                k.trimmingCharacters(in: .whitespaces),
+                v.trimmingCharacters(in: .whitespaces),
+            )
+        }
+        return nil
+    }
+
+    /// Splits `s` on the first occurrence of `separator` that is at bracket
+    /// depth 0 (so nested generic / dictionary types are preserved).
+    private static func splitTopLevel(_ s: String, on separator: Character) -> (String, String)? {
+        var depth = 0
+        for index in s.indices {
+            let character = s[index]
+            switch character {
+            case "<", "[": depth += 1
+            case ">", "]": depth -= 1
+            case separator where depth == 0:
+                let lhs = String(s[s.startIndex ..< index])
+                let rhs = String(s[s.index(after: index)...])
+                return (lhs, rhs)
+            default: break
+            }
+        }
+        return nil
+    }
+
+    /// Returns the Kotlin rendering of a Swift dictionary field type.
+    /// `[K: V]` → `Map<K_Kotlin, V_Kotlin>`. Both inner types must resolve
+    /// to either a primitive (via `primitive(_:)`) or a referenced model
+    /// class — the caller supplies the resolver via `kotlinName(of:)`.
+    ///
+    /// This is purely the *type* mapping. The encode / decode emit logic
+    /// is wired up in Task 2.10.
+    static func dictionaryKotlinType(
+        of typeText: String,
+        kotlinName: (String) -> String,
+    ) -> String? {
+        guard let (k, v) = dictionaryTypes(of: typeText) else { return nil }
+        return "Map<\(kotlinName(k)), \(kotlinName(v))>"
+    }
 }
