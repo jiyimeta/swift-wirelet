@@ -3,15 +3,17 @@ import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// Expansion of `@WireFormatEnum` on a `CaseIterable & Equatable` enum:
-/// emits one extension that adds `WireFormat` conformance whose encoded
-/// layout is a single `UInt8` carrying the case's `allCases` ordinal.
+/// Expansion of `@WireFormatEnum` on a `RawRepresentable` enum (typical:
+/// `enum Foo: UInt8, CaseIterable, Equatable { ... }`). Emits a
+/// `WireFormat` conformance whose payload is the enum's raw value encoded
+/// via the raw type's own `encodePayload(into:)`. The enum's `wireType` is
+/// the raw type's `wireType` (varint for integer raws, lengthDelimited for
+/// String). The macro does not emit a tag itself — the enclosing TLV
+/// record's field carries the tag.
 ///
-/// The macro does not inspect the enum's case list — it relies on the
-/// `CaseIterable.allCases` runtime collection. This keeps the macro
-/// agnostic to associated values syntactically (the compiler will reject
-/// associated-value enums at the `Equatable` / `CaseIterable` synthesis
-/// step instead).
+/// Wire-stable contract: changing the raw type or the rawValue assigned to
+/// a case is a breaking change. Adding new cases is forward-compatible
+/// (old readers throw `WireFormatError.invalidCount` on unknown raws).
 public struct WireFormatEnumMacro: ExtensionMacro {
     public static func expansion(
         of node: AttributeSyntax,
@@ -20,7 +22,7 @@ public struct WireFormatEnumMacro: ExtensionMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext,
     ) throws -> [ExtensionDeclSyntax] {
-        guard declaration.is(EnumDeclSyntax.self) else {
+        guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
             context.diagnose(Diagnostic(
                 node: Syntax(node),
                 message: WireFormatDiagnostic.notAnEnum,
@@ -28,29 +30,39 @@ public struct WireFormatEnumMacro: ExtensionMacro {
             return []
         }
 
-        // NOTE: `static var wireType` is emitted explicitly here so the type
-        // satisfies the Phase 2.3 protocol shape (Tasks 2.4 migrates the
-        // encode / init bodies to TLV form).
+        guard let rawTypeText = extractRawType(from: enumDecl) else {
+            context.diagnose(Diagnostic(
+                node: Syntax(node),
+                message: WireFormatDiagnostic.missingRawType,
+            ))
+            return []
+        }
+
+        let selfTypeText = type.trimmedDescription
+        let invalidCountExpr = invalidCountExpression(forRawType: rawTypeText)
+
         let extensionSource: DeclSyntax = """
         extension \(type.trimmed): WireFormatEncodable, WireFormatDecodable {
-            public static var wireType: WireType { .varint }
+            public static var wireType: WireType { \(raw: rawTypeText).wireType }
+
+            public func encodePayload(into writer: inout WireFormatWriter) {
+                rawValue.encodePayload(into: &writer)
+            }
+
+            public init(decodingPayload reader: inout WireFormatReader) throws {
+                let raw = try \(raw: rawTypeText)(decodingPayload: &reader)
+                guard let v = \(raw: selfTypeText)(rawValue: raw) else {
+                    throw WireFormatError.invalidCount(\(raw: invalidCountExpr))
+                }
+                self = v
+            }
 
             public func encode(into writer: inout WireFormatWriter) {
-                let cases = Self.allCases
-                let index = cases.firstIndex(of: self).map {
-                    cases.distance(from: cases.startIndex, to: $0)
-                } ?? 0
-                writer.appendInteger(UInt8(clamping: index))
+                encodePayload(into: &writer)
             }
 
             public init(from reader: inout WireFormatReader) throws {
-                let ordinal = try reader.readInteger(UInt8.self)
-                let cases = Self.allCases
-                let index = cases.index(cases.startIndex, offsetBy: Int(ordinal))
-                guard index < cases.endIndex else {
-                    throw WireFormatError.invalidCount(Int32(ordinal))
-                }
-                self = cases[index]
+                try self.init(decodingPayload: &reader)
             }
         }
         """
@@ -59,5 +71,37 @@ public struct WireFormatEnumMacro: ExtensionMacro {
             return []
         }
         return [extensionDecl]
+    }
+
+    // MARK: - Raw type extraction
+
+    /// Returns the textual representation of the enum's raw type (the
+    /// first non-protocol-conformance inherited type), or `nil` if the
+    /// inheritance clause is absent.
+    ///
+    /// The macro doesn't reach the type checker — it only sees syntax.
+    /// We accept any first inherited type as the raw type. Swift itself
+    /// will reject a non-RawRepresentable conformance later if the user
+    /// listed (say) `Equatable` first by mistake.
+    private static func extractRawType(from enumDecl: EnumDeclSyntax) -> String? {
+        guard let inheritance = enumDecl.inheritanceClause else { return nil }
+        guard let first = inheritance.inheritedTypes.first else { return nil }
+        return first.type.trimmedDescription
+    }
+
+    /// Renders an `Int32`-typed expression suitable for embedding in
+    /// `WireFormatError.invalidCount(_:)`. Integer raws cast directly via
+    /// `truncatingIfNeeded` (cheap diagnostic — overflow into negative is
+    /// fine for an error code). String / other raws fall back to
+    /// `hashValue` so the error still carries *some* identifying signal
+    /// without changing the error case shape.
+    private static func invalidCountExpression(forRawType rawType: String) -> String {
+        switch rawType {
+        case "UInt8", "UInt16", "UInt32", "UInt64",
+             "Int8", "Int16", "Int32", "Int64":
+            return "Int32(truncatingIfNeeded: raw)"
+        default:
+            return "Int32(truncatingIfNeeded: raw.hashValue)"
+        }
     }
 }

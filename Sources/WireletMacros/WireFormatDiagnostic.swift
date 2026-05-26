@@ -4,6 +4,7 @@ enum WireFormatDiagnostic: DiagnosticMessage {
     case notAStruct
     case notAnEnum
     case missingTypeAnnotation(propertyName: String)
+    case missingRawType
 
     var message: String {
         switch self {
@@ -13,6 +14,8 @@ enum WireFormatDiagnostic: DiagnosticMessage {
             return "@WireFormatEnum can only be applied to an enum"
         case let .missingTypeAnnotation(name):
             return "@WireFormat requires an explicit type annotation on stored property '\(name)'"
+        case .missingRawType:
+            return "@WireFormatEnum requires the enum to declare a raw type (e.g. ': UInt8' or ': String')"
         }
     }
 
@@ -22,6 +25,7 @@ enum WireFormatDiagnostic: DiagnosticMessage {
         case .notAStruct: id = "notAStruct"
         case .notAnEnum: id = "notAnEnum"
         case .missingTypeAnnotation: id = "missingTypeAnnotation"
+        case .missingRawType: id = "missingRawType"
         }
         return MessageID(domain: "Wirelet", id: id)
     }

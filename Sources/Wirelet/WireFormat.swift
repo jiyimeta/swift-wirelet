@@ -163,7 +163,8 @@ public macro WireFormat(kotlin: KotlinTarget) = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(wireType), named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
+           named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormatEnum() = #externalMacro(
     module: "WireletMacros",
@@ -173,7 +174,8 @@ public macro WireFormatEnum() = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(wireType), named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
+           named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormatEnum(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",
