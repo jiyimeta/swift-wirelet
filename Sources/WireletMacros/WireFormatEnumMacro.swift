@@ -28,8 +28,13 @@ public struct WireFormatEnumMacro: ExtensionMacro {
             return []
         }
 
+        // NOTE: `static var wireType` is emitted explicitly here so the type
+        // satisfies the Phase 2.3 protocol shape (Tasks 2.4 migrates the
+        // encode / init bodies to TLV form).
         let extensionSource: DeclSyntax = """
         extension \(type.trimmed): WireFormatEncodable, WireFormatDecodable {
+            public static var wireType: WireType { .varint }
+
             public func encode(into writer: inout WireFormatWriter) {
                 let cases = Self.allCases
                 let index = cases.firstIndex(of: self).map {

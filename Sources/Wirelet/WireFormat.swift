@@ -1,19 +1,58 @@
 import Foundation
 
 /// A type that can serialize itself into a `WireFormatWriter` in this
-/// package's canonical little-endian binary form.
+/// package's canonical TLV (tag/length/value) binary form.
 ///
 /// Conform manually for primitives, or apply `@WireFormat` to a struct to
-/// have the macro emit a synthesized conformance whose layout is each
-/// stored property encoded in declaration order.
+/// have the macro emit a synthesized conformance whose layout is a
+/// length-prefixed body containing one `(tag, payload)` pair per stored
+/// property in declaration order (implicit tags 1, 2, 3, ...).
+///
+/// Conforming types must declare:
+/// - `static var wireType: WireType` — the wire-type used when this value
+///   appears as a field of an enclosing TLV record.
+/// - `encodePayload(into:)` — write the value's *raw payload bytes* (no
+///   tag, no length wrapper). The enclosing record / array adds those.
+/// - `encode(into:)` — write the value in its top-level form. For
+///   primitives this is identical to `encodePayload`; for nested-struct
+///   types, the macro-generated implementation wraps the payload in a
+///   varint length so the value is self-delimiting.
 public protocol WireFormatEncodable {
+    static var wireType: WireType { get }
+    func encodePayload(into writer: inout WireFormatWriter)
     func encode(into writer: inout WireFormatWriter)
 }
 
 /// A type that can be deserialized from a `WireFormatReader` in this
-/// package's canonical little-endian binary form.
+/// package's canonical TLV binary form.
+///
+/// - `init(decodingPayload:)` — read the *raw payload bytes* of this
+///   value from the reader. For length-delimited types the caller is
+///   expected to have already entered a `readLengthPrefixed { ... }`
+///   slice (so `reader.isAtEnd` bounds the read).
+/// - `init(from:)` — read the value in its top-level form. For nested
+///   structs this enters the length-prefix and delegates to
+///   `init(decodingPayload:)`.
 public protocol WireFormatDecodable {
+    init(decodingPayload reader: inout WireFormatReader) throws
     init(from reader: inout WireFormatReader) throws
+}
+
+// Default implementations bridge the legacy single-method protocol shape
+// to the TLV-aware shape. Tasks 2.4 / 2.5 migrate the Enum / Choice macros
+// onto the new requirements explicitly; until then they continue to emit
+// only the legacy `encode(into:)` / `init(from:)` bodies, and the defaults
+// below let those conformances satisfy the protocol.
+extension WireFormatEncodable {
+    public func encodePayload(into writer: inout WireFormatWriter) {
+        encode(into: &writer)
+    }
+}
+
+extension WireFormatDecodable {
+    public init(decodingPayload reader: inout WireFormatReader) throws {
+        try self.init(from: &reader)
+    }
 }
 
 public typealias WireFormat = WireFormatDecodable & WireFormatEncodable
@@ -94,7 +133,8 @@ public enum KotlinTarget: Sendable {
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
+           named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormat() = #externalMacro(
     module: "WireletMacros",
@@ -104,7 +144,8 @@ public macro WireFormat() = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
+           named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormat(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",
@@ -122,7 +163,7 @@ public macro WireFormat(kotlin: KotlinTarget) = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(init(from:))
 )
 public macro WireFormatEnum() = #externalMacro(
     module: "WireletMacros",
@@ -132,7 +173,7 @@ public macro WireFormatEnum() = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(init(from:))
 )
 public macro WireFormatEnum(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",
@@ -158,7 +199,7 @@ public macro WireFormatEnum(kotlin: KotlinTarget) = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(init(from:))
 )
 public macro WireFormatChoice() = #externalMacro(
     module: "WireletMacros",
@@ -168,7 +209,7 @@ public macro WireFormatChoice() = #externalMacro(
 @attached(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
-    names: named(encode(into:)), named(init(from:))
+    names: named(wireType), named(encode(into:)), named(init(from:))
 )
 public macro WireFormatChoice(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",

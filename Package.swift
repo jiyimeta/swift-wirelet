@@ -48,6 +48,14 @@ let package = Package(
             dependencies: ["Wirelet"]
         ),
         .testTarget(
+            name: "WireletMacrosTests",
+            dependencies: [
+                "WireletMacros",
+                "Wirelet",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ]
+        ),
+        .testTarget(
             name: "WireletSchemaTests",
             dependencies: ["WireletSchema"],
             resources: [.copy("Fixtures")]

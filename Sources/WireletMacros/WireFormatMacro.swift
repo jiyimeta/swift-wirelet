@@ -5,7 +5,11 @@ import SwiftSyntaxMacros
 
 /// Expansion of `@WireFormat` on a struct: emits one extension that adds
 /// `WireFormatEncodable` + `WireFormatDecodable` conformance whose encoded
-/// layout is each stored property in declaration order.
+/// layout is a TLV (tag / length / value) record. Implicit field tags are
+/// assigned 1, 2, 3, ... in declaration order. The struct's wire type is
+/// `.lengthDelimited` — `encode(into:)` wraps `encodePayload(into:)` in a
+/// `writer.writeLengthPrefixed { ... }` so a nested struct is
+/// self-delimiting from its enclosing record.
 public struct WireFormatMacro: ExtensionMacro {
     public static func expansion(
         of node: AttributeSyntax,
@@ -24,25 +28,32 @@ public struct WireFormatMacro: ExtensionMacro {
 
         let properties = collectStoredProperties(of: structDecl, context: context)
 
-        let encodeLines = properties.map { property in
-            "self.\(property.name).encode(into: &writer)"
-        }
-        let decodeLines = properties.map { property in
-            "self.\(property.name) = try \(property.typeText)(from: &reader)"
-        }
-
-        // 4-space indent so the rendered body matches the surrounding source style.
-        let encodeBody = encodeLines.joined(separator: "\n        ")
-        let decodeBody = decodeLines.joined(separator: "\n        ")
+        let encodePayloadBody = renderEncodePayloadBody(properties: properties)
+        let decodePayloadBody = renderDecodePayloadBody(properties: properties)
 
         let extensionSource: DeclSyntax = """
         extension \(type.trimmed): WireFormatEncodable, WireFormatDecodable {
+            public static var wireType: WireType { .lengthDelimited }
+
+            public func encodePayload(into writer: inout WireFormatWriter) {
+                \(raw: encodePayloadBody)
+            }
+
             public func encode(into writer: inout WireFormatWriter) {
-                \(raw: encodeBody)
+                writer.writeLengthPrefixed { inner in
+                    encodePayload(into: &inner)
+                }
+            }
+
+            public init(decodingPayload reader: inout WireFormatReader) throws {
+                \(raw: decodePayloadBody)
             }
 
             public init(from reader: inout WireFormatReader) throws {
-                \(raw: decodeBody)
+                let len = Int(try reader.readVarint())
+                let slice = try reader.readBytes(count: len)
+                var inner = WireFormatReader(data: slice)
+                try self.init(decodingPayload: &inner)
             }
         }
         """
@@ -53,11 +64,62 @@ public struct WireFormatMacro: ExtensionMacro {
         return [extensionDecl]
     }
 
+    // MARK: - Body rendering
+
+    private static func renderEncodePayloadBody(
+        properties: [(name: String, typeText: String, tag: Int)],
+    ) -> String {
+        if properties.isEmpty {
+            return ""
+        }
+        var lines: [String] = []
+        for property in properties {
+            lines.append(
+                "writer.writeTag(tag: \(property.tag), wireType: \(property.typeText).wireType)",
+            )
+            lines.append("\(property.name).encodePayload(into: &writer)")
+        }
+        return lines.joined(separator: "\n        ")
+    }
+
+    private static func renderDecodePayloadBody(
+        properties: [(name: String, typeText: String, tag: Int)],
+    ) -> String {
+        if properties.isEmpty {
+            return ""
+        }
+        var lines: [String] = []
+        for property in properties {
+            lines.append("var _\(property.name): \(property.typeText)? = nil")
+        }
+        lines.append("while !reader.isAtEnd {")
+        lines.append("    let (tag, wt) = try reader.readTag()")
+        lines.append("    switch tag {")
+        for property in properties {
+            lines.append(
+                "    case \(property.tag): _\(property.name) = try \(property.typeText)(decodingPayload: &reader)",
+            )
+        }
+        lines.append("    default: try reader.skipUnknownField(wireType: wt)")
+        lines.append("    }")
+        lines.append("}")
+        for property in properties {
+            lines.append(
+                "guard let _\(property.name) else { throw WireFormatError.unknownTag(tag: \(property.tag), wireType: \(property.typeText).wireType) }",
+            )
+            lines.append("self.\(property.name) = _\(property.name)")
+        }
+        return lines.joined(separator: "\n        ")
+    }
+
+    // MARK: - Property collection
+
     private static func collectStoredProperties(
         of structDecl: StructDeclSyntax,
         context: some MacroExpansionContext,
-    ) -> [(name: String, typeText: String)] {
-        var out: [(name: String, typeText: String)] = []
+    ) -> [(name: String, typeText: String, tag: Int)] {
+        var out: [(name: String, typeText: String, tag: Int)] = []
+        var nextTag = 1
 
         for member in structDecl.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
@@ -84,7 +146,8 @@ public struct WireFormatMacro: ExtensionMacro {
                 }
 
                 let typeText = typeAnnotation.type.trimmedDescription
-                out.append((name: name, typeText: typeText))
+                out.append((name: name, typeText: typeText, tag: nextTag))
+                nextTag += 1
             }
         }
         return out

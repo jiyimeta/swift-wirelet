@@ -37,8 +37,13 @@ public struct WireFormatChoiceMacro: ExtensionMacro {
         let encodeBody = renderEncodeBody(cases: cases)
         let decodeBody = renderDecodeBody(cases: cases)
 
+        // NOTE: `static var wireType` is emitted explicitly here so the type
+        // satisfies the Phase 2.3 protocol shape (Tasks 2.5 migrates the
+        // encode / init bodies to TLV form).
         let extensionSource: DeclSyntax = """
         extension \(type.trimmed): WireFormatEncodable, WireFormatDecodable {
+            public static var wireType: WireType { .lengthDelimited }
+
             public func encode(into writer: inout WireFormatWriter) {
                 \(raw: encodeBody)
             }
