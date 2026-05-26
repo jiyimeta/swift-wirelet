@@ -92,7 +92,12 @@ let files: [KotlinFile] = args.includePackages.isEmpty
 
 let outputURL = URL(fileURLWithPath: args.outputDir, isDirectory: true)
 
-/// Track generated files so we can prune deletions.
+/// Track generated files so we can prune deletions. Paths are
+/// canonicalised via `resolvingSymlinksInPath()` before insertion / lookup
+/// because `FileManager.enumerator` returns symlink-resolved paths
+/// (e.g. `/tmp/foo` is reported as `/private/tmp/foo` on macOS, which
+/// firmlinks `/tmp` to `/private/tmp`). Without canonicalisation the sweep
+/// below would always miss its own freshly-written files and delete them.
 var generatedPaths = Set<String>()
 for file in files {
     let dest = outputURL.appendingPathComponent(file.relativePath)
@@ -105,13 +110,14 @@ for file in files {
     } else {
         try file.content.write(to: dest, atomically: true, encoding: .utf8)
     }
-    generatedPaths.insert(dest.path)
+    generatedPaths.insert(dest.resolvingSymlinksInPath().path)
 }
 
 // Sweep stale files: any .kt under outputDir that we didn't write this run.
 if let sweep = FileManager.default.enumerator(at: outputURL, includingPropertiesForKeys: nil) {
     for case let url as URL in sweep {
-        guard url.pathExtension == "kt", !generatedPaths.contains(url.path) else { continue }
+        let resolved = url.resolvingSymlinksInPath().path
+        guard url.pathExtension == "kt", !generatedPaths.contains(resolved) else { continue }
         try? FileManager.default.removeItem(at: url)
     }
 }

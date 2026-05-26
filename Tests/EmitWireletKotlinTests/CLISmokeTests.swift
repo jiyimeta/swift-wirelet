@@ -70,6 +70,35 @@ import Testing
     #expect(firstMtime == secondMtime)
 }
 
+/// Regression test for the `/tmp` sweep bug: when the output directory is
+/// `/tmp/...`, `FileManager.enumerator` returns URLs under `/private/tmp/...`
+/// (firmlink). Without canonicalising both sides before set lookup, the
+/// sweep deletes every file it just wrote. Fix: `resolvingSymlinksInPath()`
+/// on both insertions and enumerator-returned URLs.
+@Test func cliEmitsToTmpWithoutSweepingOwnOutput() throws {
+    let fixturesDir = try #require(
+        Bundle.module.resourceURL?
+            .appendingPathComponent("Fixtures"),
+    )
+    let sourcesDir = fixturesDir.appendingPathComponent("sources")
+    let configPath = fixturesDir.appendingPathComponent("kotlin-codegen.json")
+
+    // Use /tmp explicitly — that's where the firmlink-induced sweep bug
+    // manifested. /var/folders/... wouldn't trigger the codepath.
+    let tmpRoot = URL(fileURLWithPath: "/tmp/wirelet-emit-test-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tmpRoot, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tmpRoot) }
+
+    let executable = productsURL().appendingPathComponent("emit-wirelet-kotlin")
+    try runCLI(
+        executable: executable, config: configPath, source: sourcesDir, output: tmpRoot,
+    )
+
+    let expected = tmpRoot
+        .appendingPathComponent("io/example/audio/serialization/PointCodec.kt")
+    #expect(FileManager.default.fileExists(atPath: expected.path))
+}
+
 private func productsURL() -> URL {
     let testBundle = Bundle.module.bundleURL
     return testBundle.deletingLastPathComponent() // .../debug/
