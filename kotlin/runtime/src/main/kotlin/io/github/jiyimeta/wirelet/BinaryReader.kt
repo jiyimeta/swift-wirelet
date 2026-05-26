@@ -2,7 +2,7 @@ package io.github.jiyimeta.wirelet
 
 /**
  * Sequential little-endian binary reader. Used by every code-generated
- * codec produced by `emit-kotlin-codecs`.
+ * codec produced by `emit-wirelet-kotlin`.
  *
  * Mirrors the read side of the Swift wire-format encoder. Multi-byte
  * integers are little-endian (matching Swift's `withUnsafeBytes` store

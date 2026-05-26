@@ -2,7 +2,7 @@ package io.github.jiyimeta.wirelet
 
 /**
  * Sequential little-endian binary writer. Used by every code-generated
- * codec produced by `emit-kotlin-codecs`.
+ * codec produced by `emit-wirelet-kotlin`.
  *
  * Mirrors the write side of the Swift wire-format encoder.
  */
