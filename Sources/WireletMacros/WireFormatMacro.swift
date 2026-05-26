@@ -74,47 +74,68 @@ public struct WireFormatMacro: ExtensionMacro {
     // MARK: - Body rendering
 
     private static func renderEncodePayloadBody(
-        properties: [(name: String, typeText: String, tag: UInt32)],
+        properties: [Property],
     ) -> String {
         if properties.isEmpty {
             return ""
         }
         var lines: [String] = []
         for property in properties {
-            lines.append(
-                "writer.writeTag(tag: \(property.tag), wireType: \(property.typeText).wireType)",
-            )
-            lines.append("\(property.name).encodePayload(into: &writer)")
+            if property.isOptional {
+                // Optional field: skip tag emission entirely when nil.
+                let wrapped = property.wrappedTypeText
+                lines.append("if let value = self.\(property.name) {")
+                lines.append(
+                    "    writer.writeTag(tag: \(property.tag), wireType: \(wrapped).wireType)",
+                )
+                lines.append("    value.encodePayload(into: &writer)")
+                lines.append("}")
+            } else {
+                lines.append(
+                    "writer.writeTag(tag: \(property.tag), wireType: \(property.typeText).wireType)",
+                )
+                lines.append("\(property.name).encodePayload(into: &writer)")
+            }
         }
         return lines.joined(separator: "\n        ")
     }
 
     private static func renderDecodePayloadBody(
-        properties: [(name: String, typeText: String, tag: UInt32)],
+        properties: [Property],
     ) -> String {
         if properties.isEmpty {
             return ""
         }
         var lines: [String] = []
         for property in properties {
-            lines.append("var _\(property.name): \(property.typeText)? = nil")
+            // The decode temporary is always `T?`. For optional fields the
+            // wrapped type is `T` (same shape). For required fields we use
+            // the property's declared type as the wrapped form.
+            let wrapped = property.isOptional ? property.wrappedTypeText : property.typeText
+            lines.append("var _\(property.name): \(wrapped)? = nil")
         }
         lines.append("while !reader.isAtEnd {")
         lines.append("    let (tag, wt) = try reader.readTag()")
         lines.append("    switch tag {")
         for property in properties {
+            let wrapped = property.isOptional ? property.wrappedTypeText : property.typeText
             lines.append(
-                "    case \(property.tag): _\(property.name) = try \(property.typeText)(decodingPayload: &reader)",
+                "    case \(property.tag): _\(property.name) = try \(wrapped)(decodingPayload: &reader)",
             )
         }
         lines.append("    default: try reader.skipUnknownField(wireType: wt)")
         lines.append("    }")
         lines.append("}")
         for property in properties {
-            lines.append(
-                "guard let _\(property.name) else { throw WireFormatError.unknownTag(tag: \(property.tag), wireType: \(property.typeText).wireType) }",
-            )
-            lines.append("self.\(property.name) = _\(property.name)")
+            if property.isOptional {
+                // Absence on the wire = nil — no missing-field check.
+                lines.append("self.\(property.name) = _\(property.name)")
+            } else {
+                lines.append(
+                    "guard let _\(property.name) else { throw WireFormatError.unknownTag(tag: \(property.tag), wireType: \(property.typeText).wireType) }",
+                )
+                lines.append("self.\(property.name) = _\(property.name)")
+            }
         }
         return lines.joined(separator: "\n        ")
     }
@@ -169,15 +190,30 @@ public struct WireFormatMacro: ExtensionMacro {
 
     // MARK: - Property collection
 
+    /// Captured info for one stored property of a `@WireFormat` struct.
+    /// `typeText` is the declared type as written. `isOptional` is true
+    /// for sugared `T?` or explicit `Optional<T>` forms; for those,
+    /// `wrappedTypeText` is `T`. For non-optional fields `wrappedTypeText`
+    /// equals `typeText`.
+    struct Property {
+        var name: String
+        var typeText: String
+        var wrappedTypeText: String
+        var isOptional: Bool
+        var tag: UInt32
+    }
+
     private static func collectStoredProperties(
         of structDecl: StructDeclSyntax,
         reservedTags: Set<UInt32>,
         context: some MacroExpansionContext,
-    ) -> [(name: String, typeText: String, tag: UInt32)] {
+    ) -> [Property] {
         // Pass 1: gather (name, type, explicit tag?) for every stored property.
         typealias Raw = (
             name: String,
             typeText: String,
+            wrappedTypeText: String,
+            isOptional: Bool,
             explicitTag: UInt32?,
             varDecl: VariableDeclSyntax
         )
@@ -209,10 +245,14 @@ public struct WireFormatMacro: ExtensionMacro {
                     continue
                 }
 
-                let typeText = typeAnnotation.type.trimmedDescription
+                let typeSyntax = typeAnnotation.type
+                let typeText = typeSyntax.trimmedDescription
+                let (isOptional, wrappedTypeText) = unwrapOptional(typeSyntax)
                 raws.append((
                     name: name,
                     typeText: typeText,
+                    wrappedTypeText: wrappedTypeText,
+                    isOptional: isOptional,
                     explicitTag: explicit,
                     varDecl: varDecl
                 ))
@@ -252,20 +292,46 @@ public struct WireFormatMacro: ExtensionMacro {
         // keeps downstream errors localized to the macro's diagnostic).
         // Implicit tags use the smallest UInt32 ≥ counter that is neither
         // in seenExplicit nor in reservedTags.
-        var out: [(name: String, typeText: String, tag: UInt32)] = []
+        var out: [Property] = []
         var counter: UInt32 = 1
         for raw in raws {
-            if let tag = raw.explicitTag {
-                out.append((name: raw.name, typeText: raw.typeText, tag: tag))
-                continue
-            }
-            while seenExplicit.contains(counter) || reservedTags.contains(counter) || counter == 0 {
+            let tag: UInt32
+            if let explicit = raw.explicitTag {
+                tag = explicit
+            } else {
+                while seenExplicit.contains(counter) || reservedTags.contains(counter) || counter == 0 {
+                    counter &+= 1
+                }
+                tag = counter
                 counter &+= 1
             }
-            out.append((name: raw.name, typeText: raw.typeText, tag: counter))
-            counter &+= 1
+            out.append(Property(
+                name: raw.name,
+                typeText: raw.typeText,
+                wrappedTypeText: raw.wrappedTypeText,
+                isOptional: raw.isOptional,
+                tag: tag,
+            ))
         }
         return out
+    }
+
+    /// Detects `T?` (sugar) and `Optional<T>` (explicit) forms and returns
+    /// `(isOptional, wrappedTypeText)`. For non-optional types returns
+    /// `(false, typeText)` so callers can use the result uniformly.
+    private static func unwrapOptional(_ type: TypeSyntax) -> (isOptional: Bool, wrapped: String) {
+        if let optType = type.as(OptionalTypeSyntax.self) {
+            return (true, optType.wrappedType.trimmedDescription)
+        }
+        if let identType = type.as(IdentifierTypeSyntax.self),
+           identType.name.text == "Optional",
+           let generics = identType.genericArgumentClause,
+           let firstArg = generics.arguments.first,
+           generics.arguments.count == 1
+        {
+            return (true, firstArg.argument.trimmedDescription)
+        }
+        return (false, type.trimmedDescription)
     }
 
     private static func isComputed(binding: PatternBindingSyntax) -> Bool {
