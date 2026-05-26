@@ -61,4 +61,16 @@ func regenerateFixtures() throws {
     try #"{"a":5,"b":42}"#
         .write(to: dir.appendingPathComponent("forward_compat_v2_to_v1.json"),
                atomically: true, encoding: .utf8)
+
+    // ------- map_multi_v1 -------
+    // Multi-entry Map; entries are canonicalised by encoded-key bytes
+    // (lexicographic), so the wire bytes are deterministic regardless of
+    // Dictionary's intrinsic unordered iteration. The Kotlin emitter must
+    // produce identical bytes (sorted via `ByteArrayLexComparator`).
+    let mapMulti = MapHolder(m: ["zeta": -1, "alpha": 10, "mango": 7])
+    try mapMulti.encodeToData()
+        .write(to: dir.appendingPathComponent("map_multi_v1.bin"))
+    try #"{"m":{"alpha":10,"mango":7,"zeta":-1}}"#
+        .write(to: dir.appendingPathComponent("map_multi_v1.json"),
+               atomically: true, encoding: .utf8)
 }

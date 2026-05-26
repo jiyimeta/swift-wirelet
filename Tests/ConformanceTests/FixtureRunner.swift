@@ -55,6 +55,17 @@ private func loadFixture(_ name: String) throws -> Data {
     #expect(v.encodeToData() == bin)
 }
 
+@Test func mapMultiFixture() throws {
+    // Multi-entry Map fixture: locks down the canonical-key-sort encoding
+    // (entries sorted by lexicographic encoded-key bytes) so that
+    // Swift and Kotlin produce byte-identical wire bytes irrespective of
+    // host iteration order.
+    let bin = try loadFixture("map_multi_v1.bin")
+    let v = try MapHolder(decoding: bin)
+    #expect(v.m == ["alpha": 10, "mango": 7, "zeta": -1])
+    #expect(v.encodeToData() == bin)
+}
+
 @Test func forwardCompatV2ToV1() throws {
     // Bytes were produced by OptionalHolderV2 (a, b, c). Decoding with
     // v1's schema must silently skip tag 3 (`c`) and recover (a, b).

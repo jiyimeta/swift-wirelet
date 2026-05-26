@@ -23,9 +23,13 @@ enum ChoiceEmitter {
 
         // Imports.
         var referenced = Set<String>()
+        var usesDictionary = false
         for c in choice.cases {
             for field in c.payload {
                 collectReferenced(typeText: field.typeText, into: &referenced, transform: nameTransform)
+                if StructEmitter.containsDictionary(typeText: field.typeText) {
+                    usesDictionary = true
+                }
             }
         }
         var importLines = ["import \(modelPackage).\(kotlinName)"]
@@ -35,6 +39,9 @@ enum ChoiceEmitter {
             importLines.append("import \(serializationPackage).BinaryWriter")
             importLines.append("import \(serializationPackage).WireFormatException")
             importLines.append("import \(serializationPackage).WireType")
+            if usesDictionary {
+                importLines.append("import \(serializationPackage).ByteArrayLexComparator")
+            }
         }
         let allImports = importLines.joined(separator: "\n")
 

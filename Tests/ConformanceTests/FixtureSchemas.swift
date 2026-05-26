@@ -63,3 +63,16 @@ public struct OptionalHolderV2 {
         self.c = c
     }
 }
+
+// Multi-entry Map fixture (Task 2.10 follow-up). Exercises the
+// canonical-key-sort emission in both Swift's Dictionary conformance and
+// the Kotlin emitter — proving multi-entry Maps round-trip byte-identically
+// across both languages regardless of host iteration order.
+@WireFormat
+public struct MapHolder {
+    public var m: [String: Int32]
+
+    public init(m: [String: Int32]) {
+        self.m = m
+    }
+}

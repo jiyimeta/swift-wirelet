@@ -7,9 +7,11 @@
 
 package io.github.jiyimeta.wirelet.conformance
 
+import io.github.jiyimeta.wirelet.conformance.model.MapHolder
 import io.github.jiyimeta.wirelet.conformance.model.OptionalHolder
 import io.github.jiyimeta.wirelet.conformance.model.Primitives
 import io.github.jiyimeta.wirelet.conformance.model.ShapeChoice
+import io.github.jiyimeta.wirelet.conformance.serialization.MapHolderCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.OptionalHolderCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.PrimitivesCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.ShapeChoiceCodec
@@ -59,6 +61,16 @@ class FixtureRunner {
         assertEquals(3, v.arg0)
         assertEquals(-7, v.arg1)
         assertContentEquals(bytes, ShapeChoiceCodec.encode(v))
+    }
+
+    @Test fun mapMulti() {
+        // Multi-entry Map fixture (3 entries). Locks down the canonical
+        // key-sort emission — both Swift and Kotlin must produce identical
+        // wire bytes irrespective of host Map iteration order.
+        val bytes = fixture("map_multi_v1.bin")
+        val v = MapHolderCodec.decode(bytes)
+        assertEquals(mapOf("alpha" to 10, "mango" to 7, "zeta" to -1), v.m)
+        assertContentEquals(bytes, MapHolderCodec.encode(v))
     }
 
     @Test fun forwardCompatV2ToV1() {

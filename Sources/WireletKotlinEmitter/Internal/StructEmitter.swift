@@ -58,8 +58,12 @@ enum StructEmitter {
 
         // Collect imports.
         var referenced = Set<String>()
+        var usesDictionary = false
         for field in wireStruct.fields {
             collectReferenced(typeText: field.wrappedTypeText, into: &referenced, transform: nameTransform)
+            if containsDictionary(typeText: field.wrappedTypeText) {
+                usesDictionary = true
+            }
         }
         referenced.remove(kotlinName)
 
@@ -70,6 +74,9 @@ enum StructEmitter {
             importLines.append("import \(serializationPackage).BinaryWriter")
             importLines.append("import \(serializationPackage).WireFormatException")
             importLines.append("import \(serializationPackage).WireType")
+            if usesDictionary {
+                importLines.append("import \(serializationPackage).ByteArrayLexComparator")
+            }
         }
         let allImports = importLines.joined(separator: "\n")
 
@@ -247,12 +254,14 @@ enum StructEmitter {
 
     // MARK: - Dictionary helpers
 
-    /// Note: this emits a *non-canonical* dictionary encode (iteration
-    /// order = source `Map.entries`). Cross-language byte-identical
-    /// dictionaries require a canonical sort by encoded-key bytes; that
-    /// is tracked as a follow-up. The decode is symmetric with the
-    /// canonical encode shape, so a Swift-encoded payload still round-trips
-    /// correctly into Kotlin.
+    /// Emits a *canonical* dictionary encode: each entry's key is first
+    /// written to a scratch `BinaryWriter`, entries are sorted by their
+    /// encoded-key bytes (lexicographic, unsigned-byte comparison via
+    /// `ByteArrayLexComparator`), then count + sorted (keyBytes, value)
+    /// pairs are emitted. Matches Swift's `Dictionary.encodePayload`
+    /// canonicalisation so multi-entry Maps round-trip byte-identically
+    /// between Swift and Kotlin. Decode is symmetric (order doesn't
+    /// matter when populating the target `MutableMap`).
     private static func dictionaryWrite(
         keyType: String,
         valueType: String,
@@ -260,14 +269,21 @@ enum StructEmitter {
         writerName: String,
         transform: NameTransform,
     ) -> [String] {
-        let writeK = payloadWrite(typeText: keyType, valueExpr: "e.key", writerName: "this", transform: transform).joined(separator: "; ")
-        let writeV = payloadWrite(typeText: valueType, valueExpr: "e.value", writerName: "this", transform: transform).joined(separator: "; ")
+        let writeKInto = payloadWrite(typeText: keyType, valueExpr: "entry.key", writerName: "kw", transform: transform)
+        // Use `entryValue` as the destructured local so we don't shadow
+        // the codec's outer `value` parameter (Kotlin emits a warning).
+        let writeV = payloadWrite(typeText: valueType, valueExpr: "entryValue", writerName: "this", transform: transform)
         var lines: [String] = []
         lines.append("\(writerName).writeLengthPrefixed {")
-        lines.append("    writeVarint((\(valueExpr)).size.toLong())")
-        lines.append("    for (e in \(valueExpr).entries) {")
-        lines.append("        \(writeK)")
-        lines.append("        \(writeV)")
+        lines.append("    val sortedEntries = (\(valueExpr)).entries.map { entry ->")
+        lines.append("        val kw = BinaryWriter()")
+        for ln in writeKInto { lines.append("        \(ln)") }
+        lines.append("        kw.toByteArray() to entry.value")
+        lines.append("    }.sortedWith(compareBy(ByteArrayLexComparator) { it.first })")
+        lines.append("    writeVarint(sortedEntries.size.toLong())")
+        lines.append("    for ((keyBytes, entryValue) in sortedEntries) {")
+        lines.append("        writeBytes(keyBytes)")
+        for ln in writeV { lines.append("        \(ln)") }
         lines.append("    }")
         lines.append("}")
         return lines
@@ -281,9 +297,12 @@ enum StructEmitter {
     ) -> String {
         let kk = KotlinTypeMap.kotlinType(of: keyType, nameTransform: transform)
         let vv = KotlinTypeMap.kotlinType(of: valueType, nameTransform: transform)
-        let readK = decodeExpr(typeText: keyType, readerName: "it", transform: transform)
-        let readV = decodeExpr(typeText: valueType, readerName: "it", transform: transform)
-        return "\(readerName).readLengthPrefixed { val count = it.readVarint().toInt(); val m = LinkedHashMap<\(kk), \(vv)>(count); repeat(count) { val k = \(readK); val v = \(readV); m[k] = v }; m }"
+        // Rename the outer lambda parameter to `dr` (dictionary reader) so
+        // that `repeat(count) { ... }`'s implicit `it: Int` doesn't shadow
+        // the reader inside the loop body.
+        let readK = decodeExpr(typeText: keyType, readerName: "dr", transform: transform)
+        let readV = decodeExpr(typeText: valueType, readerName: "dr", transform: transform)
+        return "\(readerName).readLengthPrefixed { dr -> val count = dr.readVarint().toInt(); val m = LinkedHashMap<\(kk), \(vv)>(count); repeat(count) { val k = \(readK); val v = \(readV); m[k] = v }; m }"
     }
 
     // MARK: - Import collection
@@ -304,5 +323,21 @@ enum StructEmitter {
             return
         }
         out.insert(transform.apply(to: KotlinTypeMap.simpleName(of: typeText)))
+    }
+
+    /// Recursively checks whether `typeText` contains any dictionary type
+    /// (the codec then needs to reference `ByteArrayLexComparator` for the
+    /// canonical-sort emission and thus import it across packages).
+    static func containsDictionary(typeText: String) -> Bool {
+        if KotlinTypeMap.primitive(typeText) != nil { return false }
+        if let elem = KotlinTypeMap.arrayElementType(typeText) {
+            return containsDictionary(typeText: elem)
+        }
+        if let (k, v) = KotlinTypeMap.dictionaryTypes(of: typeText) {
+            _ = k
+            _ = v
+            return true
+        }
+        return false
     }
 }
