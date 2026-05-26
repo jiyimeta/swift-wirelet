@@ -1,0 +1,7 @@
+{
+  "defaultModelPackage": "io.github.jiyimeta.wirelet.conformance.model",
+  "defaultCodecPackage": "io.github.jiyimeta.wirelet.conformance.serialization",
+  "defaultSerializationPackage": "io.github.jiyimeta.wirelet",
+  "nameTransform": { "identity": true },
+  "rules": []
+}

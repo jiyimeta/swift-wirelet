@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 rootProject.name = "wirelet"
 
 include(":runtime")
+include(":conformance-tests")
