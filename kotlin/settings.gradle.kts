@@ -15,3 +15,4 @@ rootProject.name = "wirelet"
 
 include(":runtime")
 include(":conformance-tests")
+include(":gradle-plugin")
