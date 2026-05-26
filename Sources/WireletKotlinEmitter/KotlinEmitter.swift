@@ -37,6 +37,15 @@ public struct KotlinEmitter: Sendable {
                     serializationPackage: serPkg,
                     nameTransform: config.nameTransform,
                 ))
+                if config.emitModels {
+                    files.append(ModelEmitter.emitStruct(
+                        s,
+                        kotlinName: kotlinName,
+                        modelPackage: modelPkg,
+                        nameTransform: config.nameTransform,
+                        resolver: resolver,
+                    ))
+                }
             case let .choice(c):
                 files.append(ChoiceEmitter.emit(
                     c,
@@ -46,6 +55,15 @@ public struct KotlinEmitter: Sendable {
                     serializationPackage: serPkg,
                     nameTransform: config.nameTransform,
                 ))
+                if config.emitModels {
+                    files.append(ModelEmitter.emitChoice(
+                        c,
+                        kotlinName: kotlinName,
+                        modelPackage: modelPkg,
+                        nameTransform: config.nameTransform,
+                        resolver: resolver,
+                    ))
+                }
             case let .rawEnum(e):
                 files.append(EnumEmitter.emit(
                     e,
@@ -54,6 +72,13 @@ public struct KotlinEmitter: Sendable {
                     codecPackage: codecPkg,
                     serializationPackage: serPkg,
                 ))
+                if config.emitModels {
+                    files.append(ModelEmitter.emitEnum(
+                        e,
+                        kotlinName: kotlinName,
+                        modelPackage: modelPkg,
+                    ))
+                }
             }
         }
         return files

@@ -9,6 +9,11 @@ public struct KotlinCodegenConfig: Codable, Sendable, Equatable {
     public var defaultSerializationPackage: String?
     public var nameTransform: NameTransform
     public var rules: [Rule]
+    /// When true the emitter also writes Kotlin model files
+    /// (`data class` / `sealed class` / `enum class`) into the model
+    /// package alongside the codecs. Default false to preserve the
+    /// historical "consumer hand-authors the data class" workflow.
+    public var emitModels: Bool
 
     public init(
         defaultModelPackage: String,
@@ -16,12 +21,33 @@ public struct KotlinCodegenConfig: Codable, Sendable, Equatable {
         defaultSerializationPackage: String? = nil,
         nameTransform: NameTransform = .identity,
         rules: [Rule] = [],
+        emitModels: Bool = false,
     ) {
         self.defaultModelPackage = defaultModelPackage
         self.defaultCodecPackage = defaultCodecPackage
         self.defaultSerializationPackage = defaultSerializationPackage
         self.nameTransform = nameTransform
         self.rules = rules
+        self.emitModels = emitModels
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case defaultModelPackage
+        case defaultCodecPackage
+        case defaultSerializationPackage
+        case nameTransform
+        case rules
+        case emitModels
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        defaultModelPackage = try c.decode(String.self, forKey: .defaultModelPackage)
+        defaultCodecPackage = try c.decode(String.self, forKey: .defaultCodecPackage)
+        defaultSerializationPackage = try c.decodeIfPresent(String.self, forKey: .defaultSerializationPackage)
+        nameTransform = try c.decodeIfPresent(NameTransform.self, forKey: .nameTransform) ?? .identity
+        rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
+        emitModels = try c.decodeIfPresent(Bool.self, forKey: .emitModels) ?? false
     }
 }
 

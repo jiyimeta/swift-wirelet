@@ -3,5 +3,6 @@
   "defaultCodecPackage": "io.github.jiyimeta.wirelet.conformance.serialization",
   "defaultSerializationPackage": "io.github.jiyimeta.wirelet",
   "nameTransform": { "identity": true },
-  "rules": []
+  "rules": [],
+  "emitModels": true
 }
