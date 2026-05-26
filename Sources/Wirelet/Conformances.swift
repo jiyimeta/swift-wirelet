@@ -290,6 +290,39 @@ extension String: WireFormatDecodable {
     }
 }
 
+// MARK: - Data — wire type 2 (length-delimited): varint length + raw bytes.
+//
+// We do not add a separate `[UInt8]` conformance because Swift does not
+// support overlapping conditional conformances — the generic
+// `Array: WireFormatEncodable where Element: WireFormatEncodable`
+// conformance below already covers `[UInt8]`, but with per-element
+// varint encoding (not raw bytes). Callers who want a length-prefixed
+// raw byte field should use `Data`, which has the dedicated encoding.
+
+extension Data: WireFormatEncodable {
+    public static var wireType: WireType { .lengthDelimited }
+
+    public func encodePayload(into writer: inout WireFormatWriter) {
+        writer.writeVarint(UInt64(count))
+        writer.appendBytes(self)
+    }
+
+    public func encode(into writer: inout WireFormatWriter) {
+        encodePayload(into: &writer)
+    }
+}
+
+extension Data: WireFormatDecodable {
+    public init(decodingPayload reader: inout WireFormatReader) throws {
+        let count = Int(try reader.readVarint())
+        self = try reader.readBytes(count: count)
+    }
+
+    public init(from reader: inout WireFormatReader) throws {
+        try self.init(decodingPayload: &reader)
+    }
+}
+
 // MARK: - Array — wire type 2 (length-delimited): varint length + concatenated element payloads.
 
 extension Array: WireFormatEncodable where Element: WireFormatEncodable {

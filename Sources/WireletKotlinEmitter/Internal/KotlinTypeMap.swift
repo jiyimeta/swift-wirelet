@@ -19,6 +19,10 @@ enum KotlinTypeMap {
         // @WireFormat type uses a raw String field, so this does not block codegen.
         // Task 17 will add readString/writeString and verify end-to-end.
         case "String": return ("String", "r.readString()", { "w.writeString(\($0))" })
+        // `Data` maps to a length-prefixed `ByteArray` on the Kotlin side.
+        // BinaryReader/BinaryWriter readBytes/writeBytes helpers handle
+        // the varint length + raw byte payload; see Task 2.10 goldens.
+        case "Data": return ("ByteArray", "r.readBytes()", { "w.writeBytes(\($0))" })
         default:
             return nil
         }
