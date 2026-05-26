@@ -1,1 +1,3 @@
-// Subprojects added in Phase 1.
+plugins {
+    kotlin("jvm") version "1.9.22" apply false
+}
