@@ -4,14 +4,6 @@ This guide explains how to generate Kotlin codecs for your
 `@WireFormat` Swift types and use them from a Kotlin/JVM or
 Kotlin/Android project.
 
-> **Phase status.** The Gradle plugin that wraps the codegen CLI is
-> planned for Phase 3 of the wirelet roadmap and is **not yet
-> shipped**. Until it lands, invoke the codegen CLI manually as
-> described below. The runtime API (`BinaryReader` / `BinaryWriter` /
-> generated `*Codec` objects) is stable and will not change when the
-> plugin ships — only the invocation site moves from a script into a
-> Gradle DSL block.
-
 ## Prerequisites
 
 - Swift 5.10+ available on the host that runs the codegen (you do not
@@ -120,26 +112,50 @@ regenerate the fixtures in the same commit; see
 [wire-format-spec.md](wire-format-spec.md) for which kinds of changes
 require fixture refreshes.
 
-## Coming in Phase 3 — Gradle plugin
+## Gradle plugin
 
-When the plugin lands, the manual `swift run …` invocation above will
-be replaced with a Gradle DSL block in your module's `build.gradle.kts`:
+The recommended way to invoke the codegen is the `io.github.jiyimeta.wirelet`
+Gradle plugin. Apply it alongside `kotlin("jvm")`:
 
 ```kotlin
-// Illustrative — not yet shipped.
+plugins {
+    kotlin("jvm") version "1.9.22"
+    id("io.github.jiyimeta.wirelet") version "0.0.0-SNAPSHOT"
+}
+
+dependencies {
+    implementation("io.github.jiyimeta:wirelet-runtime:0.0.0-SNAPSHOT")
+}
+
 wirelet {
-    swiftSources("../swift-package/Sources/MySchema")
-    includePackages("MySchema")
-    outputDir("$buildDir/generated/wirelet")
+    // Local checkout of the wirelet Swift package — the plugin forks
+    // `swift run --package-path <this> emit-wirelet-kotlin ...`, so a
+    // Swift toolchain is required on the host.
+    swiftPackagePath.set(file("../wirelet"))
+
+    sources.register("main") {
+        schemaPaths.from(file("../shared-schema/Sources"))
+        codecPackage.set("com.example.app.codec")
+        modelPackage.set("com.example.app.model")
+        emitModels.set(true)
+        // Optional: filter generated codecs to specific Kotlin packages
+        // includePackages.add("com.example.app.codec")
+        // Optional: strip a Swift naming suffix from generated Kotlin types
+        // stripNameSuffix.set("Wire")
+    }
 }
 ```
 
-The generated sources will join the `kotlin/main` source set
-automatically and the generation task will hook into `compileKotlin`.
-The CHANGELOG will note the version that introduces it; until then,
-wrap the `swift run` invocation in a `tasks.register("generateWirelet")
-{ exec { … } }` block to keep the codegen step inside the Gradle build
-graph.
+The plugin registers one `generateWireletCodecs<Name>` task per source-set
+entry, wires its output directory into the corresponding Kotlin source
+set, and makes `compile<Variant>Kotlin` depend on it. Generated files
+land under `build/generated/wirelet/<name>/kotlin/...`. Input / output
+annotations make the task UP-TO-DATE-aware and cache-friendly.
+
+Until `wirelet-runtime` and the plugin are published to Maven Central /
+GitHub Packages (Phase 4), the easiest local workflow is `./gradlew
+publishToMavenLocal` from the wirelet repo plus `mavenLocal()` in the
+consumer's `pluginManagement` / `repositories` blocks.
 
 ## Next steps
 
