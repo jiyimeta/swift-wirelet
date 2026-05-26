@@ -331,7 +331,11 @@ extension Array: WireFormatEncodable where Element: WireFormatEncodable {
     public func encodePayload(into writer: inout WireFormatWriter) {
         writer.writeLengthPrefixed { inner in
             for element in self {
-                element.encodePayload(into: &inner)
+                // Use `encode(into:)` so nested @WireFormat element types
+                // get their own length prefix and remain self-delimiting
+                // within the array body. For primitives this is byte-
+                // identical to `encodePayload(into:)`.
+                element.encode(into: &inner)
             }
         }
     }
@@ -346,7 +350,7 @@ extension Array: WireFormatDecodable where Element: WireFormatDecodable {
         var result: [Element] = []
         try reader.readLengthPrefixed { inner in
             while !inner.isAtEnd {
-                try result.append(Element(decodingPayload: &inner))
+                try result.append(Element(from: &inner))
             }
         }
         self = result
@@ -374,9 +378,13 @@ where Key: WireFormatEncodable, Value: WireFormatEncodable {
     public func encodePayload(into writer: inout WireFormatWriter) {
         // Encode each key's payload to bytes once; sort entries by encoded-key
         // bytes for canonical cross-language order.
+        // Use `encode(into:)` (not `encodePayload`) for both K and V so
+        // nested @WireFormat types get their own length prefix and remain
+        // self-delimiting within the entry stream. For primitives this is
+        // byte-identical to `encodePayload(into:)`.
         let encodedKeys: [(keyBytes: Data, value: Value)] = self.map { entry in
             var keyWriter = WireFormatWriter()
-            entry.key.encodePayload(into: &keyWriter)
+            entry.key.encode(into: &keyWriter)
             return (keyWriter.data, entry.value)
         }
         let sorted = encodedKeys.sorted { lhs, rhs in
@@ -386,7 +394,7 @@ where Key: WireFormatEncodable, Value: WireFormatEncodable {
             inner.writeVarint(UInt64(sorted.count))
             for entry in sorted {
                 inner.appendBytes(entry.keyBytes)
-                entry.value.encodePayload(into: &inner)
+                entry.value.encode(into: &inner)
             }
         }
     }
@@ -404,8 +412,8 @@ where Key: WireFormatDecodable & Hashable, Value: WireFormatDecodable {
             let count = Int(try inner.readVarint())
             dict.reserveCapacity(count)
             for _ in 0 ..< count {
-                let k = try Key(decodingPayload: &inner)
-                let v = try Value(decodingPayload: &inner)
+                let k = try Key(from: &inner)
+                let v = try Value(from: &inner)
                 dict[k] = v
             }
         }

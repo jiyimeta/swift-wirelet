@@ -18,7 +18,7 @@ public object ScoreCursorCodec {
             is ScoreCursor.Item -> {
                 w.writeVarint(0L)
                 w.writeTag(1, ScoreItemIDCodec.WIRE_TYPE)
-                ScoreItemIDCodec.encodePayload(value.arg0, w)
+                w.writeLengthPrefixed { ScoreItemIDCodec.encodePayload(value.arg0, this) }
             }
             is ScoreCursor.Beat -> {
                 w.writeVarint(1L)
@@ -43,7 +43,7 @@ public object ScoreCursorCodec {
                 while (r.remaining > 0) {
                     val (tag, wt) = r.readTag()
                     when (tag) {
-                        1 -> _arg0 = ScoreItemIDCodec.decodePayload(r)
+                        1 -> _arg0 = r.readLengthPrefixed { ScoreItemIDCodec.decodePayload(it) }
                         else -> r.skipUnknownField(wt)
                     }
                 }

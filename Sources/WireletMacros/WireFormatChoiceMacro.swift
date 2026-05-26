@@ -141,7 +141,7 @@ public struct WireFormatChoiceMacro: ExtensionMacro {
                     lines.append(
                         "    writer.writeTag(tag: \(tag), wireType: \(param.typeText).wireType)",
                     )
-                    lines.append("    v\(valueIndex).encodePayload(into: &writer)")
+                    lines.append("    v\(valueIndex).encode(into: &writer)")
                 }
             }
         }
@@ -168,7 +168,7 @@ public struct WireFormatChoiceMacro: ExtensionMacro {
                 for (valueIndex, param) in c.parameters.enumerated() {
                     let tag = valueIndex + 1
                     lines.append(
-                        "        case \(tag): _arg\(valueIndex) = try \(param.typeText)(decodingPayload: &reader)",
+                        "        case \(tag): _arg\(valueIndex) = try \(param.typeText)(from: &reader)",
                     )
                 }
                 lines.append("        default: try reader.skipUnknownField(wireType: wt)")

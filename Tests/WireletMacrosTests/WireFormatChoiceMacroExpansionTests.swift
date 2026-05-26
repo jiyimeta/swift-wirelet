@@ -84,9 +84,9 @@ final class WireFormatChoiceMacroExpansionTests: XCTestCase {
                     case .point(let v0, let v1):
                         writer.writeVarint(UInt64(0))
                         writer.writeTag(tag: 1, wireType: Int32.wireType)
-                        v0.encodePayload(into: &writer)
+                        v0.encode(into: &writer)
                         writer.writeTag(tag: 2, wireType: Int32.wireType)
-                        v1.encodePayload(into: &writer)
+                        v1.encode(into: &writer)
                     }
                 }
 
@@ -106,9 +106,9 @@ final class WireFormatChoiceMacroExpansionTests: XCTestCase {
                             let (tag, wt) = try reader.readTag()
                             switch tag {
                             case 1:
-                                _arg0 = try Int32(decodingPayload: &reader)
+                                _arg0 = try Int32(from: &reader)
                             case 2:
-                                _arg1 = try Int32(decodingPayload: &reader)
+                                _arg1 = try Int32(from: &reader)
                             default:
                                 try reader.skipUnknownField(wireType: wt)
                             }
@@ -164,13 +164,13 @@ final class WireFormatChoiceMacroExpansionTests: XCTestCase {
                     case .point(let v0, let v1):
                         writer.writeVarint(UInt64(0))
                         writer.writeTag(tag: 1, wireType: Int32.wireType)
-                        v0.encodePayload(into: &writer)
+                        v0.encode(into: &writer)
                         writer.writeTag(tag: 2, wireType: Int32.wireType)
-                        v1.encodePayload(into: &writer)
+                        v1.encode(into: &writer)
                     case .label(let v0):
                         writer.writeVarint(UInt64(1))
                         writer.writeTag(tag: 1, wireType: String.wireType)
-                        v0.encodePayload(into: &writer)
+                        v0.encode(into: &writer)
                     case .empty:
                         writer.writeVarint(UInt64(2))
                     }
@@ -192,9 +192,9 @@ final class WireFormatChoiceMacroExpansionTests: XCTestCase {
                             let (tag, wt) = try reader.readTag()
                             switch tag {
                             case 1:
-                                _arg0 = try Int32(decodingPayload: &reader)
+                                _arg0 = try Int32(from: &reader)
                             case 2:
-                                _arg1 = try Int32(decodingPayload: &reader)
+                                _arg1 = try Int32(from: &reader)
                             default:
                                 try reader.skipUnknownField(wireType: wt)
                             }
@@ -212,7 +212,7 @@ final class WireFormatChoiceMacroExpansionTests: XCTestCase {
                             let (tag, wt) = try reader.readTag()
                             switch tag {
                             case 1:
-                                _arg0 = try String(decodingPayload: &reader)
+                                _arg0 = try String(from: &reader)
                             default:
                                 try reader.skipUnknownField(wireType: wt)
                             }

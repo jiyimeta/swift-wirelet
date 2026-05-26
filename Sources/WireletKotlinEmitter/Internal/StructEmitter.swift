@@ -167,7 +167,11 @@ enum StructEmitter {
             return dictionaryWrite(keyType: k, valueType: v, valueExpr: valueExpr, writerName: writerName, transform: transform)
         }
         let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
-        return ["\(codec).encodePayload(\(valueExpr), \(writerName))"]
+        // Nested @WireFormat user types are length-delimited on the wire.
+        // Wrap their payload in a length prefix so the parent decoder can
+        // skip / slice them by tag — symmetric with the Swift macro's
+        // `value.encode(into:)` emission.
+        return ["\(writerName).writeLengthPrefixed { \(codec).encodePayload(\(valueExpr), this) }"]
     }
 
     /// Returns a Kotlin expression that reads a value of `typeText` from
@@ -187,7 +191,9 @@ enum StructEmitter {
             return dictionaryReadExpr(keyType: k, valueType: v, readerName: readerName, transform: transform)
         }
         let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
-        return "\(codec).decodePayload(\(readerName))"
+        // Symmetric with the length-prefixed write — slice the nested
+        // record before decoding its payload.
+        return "\(readerName).readLengthPrefixed { \(codec).decodePayload(it) }"
     }
 
     /// Returns the `WireType.<NAME>` reference to use in a `writeTag` call

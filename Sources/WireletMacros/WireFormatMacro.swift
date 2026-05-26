@@ -88,13 +88,13 @@ public struct WireFormatMacro: ExtensionMacro {
                 lines.append(
                     "    writer.writeTag(tag: \(property.tag), wireType: \(wrapped).wireType)",
                 )
-                lines.append("    value.encodePayload(into: &writer)")
+                lines.append("    value.encode(into: &writer)")
                 lines.append("}")
             } else {
                 lines.append(
                     "writer.writeTag(tag: \(property.tag), wireType: \(property.typeText).wireType)",
                 )
-                lines.append("\(property.name).encodePayload(into: &writer)")
+                lines.append("\(property.name).encode(into: &writer)")
             }
         }
         return lines.joined(separator: "\n        ")
@@ -120,7 +120,7 @@ public struct WireFormatMacro: ExtensionMacro {
         for property in properties {
             let wrapped = property.isOptional ? property.wrappedTypeText : property.typeText
             lines.append(
-                "    case \(property.tag): _\(property.name) = try \(wrapped)(decodingPayload: &reader)",
+                "    case \(property.tag): _\(property.name) = try \(wrapped)(from: &reader)",
             )
         }
         lines.append("    default: try reader.skipUnknownField(wireType: wt)")

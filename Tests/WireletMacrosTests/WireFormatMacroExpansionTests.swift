@@ -68,7 +68,7 @@ final class WireFormatMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 1, wireType: Int32.wireType)
-                    x.encodePayload(into: &writer)
+                    x.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -83,7 +83,7 @@ final class WireFormatMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 1:
-                            _x = try Int32(decodingPayload: &reader)
+                            _x = try Int32(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
@@ -128,9 +128,9 @@ final class WireFormatMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 1, wireType: Int32.wireType)
-                    x.encodePayload(into: &writer)
+                    x.encode(into: &writer)
                     writer.writeTag(tag: 2, wireType: Int32.wireType)
-                    y.encodePayload(into: &writer)
+                    y.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -146,9 +146,9 @@ final class WireFormatMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 1:
-                            _x = try Int32(decodingPayload: &reader)
+                            _x = try Int32(from: &reader)
                         case 2:
-                            _y = try Int32(decodingPayload: &reader)
+                            _y = try Int32(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }

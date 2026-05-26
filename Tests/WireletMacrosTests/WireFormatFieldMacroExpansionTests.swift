@@ -31,7 +31,7 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 7, wireType: Int32.wireType)
-                    x.encodePayload(into: &writer)
+                    x.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -46,7 +46,7 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 7:
-                            _x = try Int32(decodingPayload: &reader)
+                            _x = try Int32(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
@@ -95,11 +95,11 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 1, wireType: Int32.wireType)
-                    a.encodePayload(into: &writer)
+                    a.encode(into: &writer)
                     writer.writeTag(tag: 7, wireType: Int32.wireType)
-                    b.encodePayload(into: &writer)
+                    b.encode(into: &writer)
                     writer.writeTag(tag: 2, wireType: Int32.wireType)
-                    c.encodePayload(into: &writer)
+                    c.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -116,11 +116,11 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 1:
-                            _a = try Int32(decodingPayload: &reader)
+                            _a = try Int32(from: &reader)
                         case 7:
-                            _b = try Int32(decodingPayload: &reader)
+                            _b = try Int32(from: &reader)
                         case 2:
-                            _c = try Int32(decodingPayload: &reader)
+                            _c = try Int32(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
@@ -174,9 +174,9 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 3, wireType: Int32.wireType)
-                    a.encodePayload(into: &writer)
+                    a.encode(into: &writer)
                     writer.writeTag(tag: 4, wireType: Int32.wireType)
-                    b.encodePayload(into: &writer)
+                    b.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -192,9 +192,9 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 3:
-                            _a = try Int32(decodingPayload: &reader)
+                            _a = try Int32(from: &reader)
                         case 4:
-                            _b = try Int32(decodingPayload: &reader)
+                            _b = try Int32(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
@@ -243,7 +243,7 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 3, wireType: String.wireType)
-                    name.encodePayload(into: &writer)
+                    name.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -258,7 +258,7 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 3:
-                            _name = try String(decodingPayload: &reader)
+                            _name = try String(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
@@ -311,9 +311,9 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 5, wireType: Int32.wireType)
-                    a.encodePayload(into: &writer)
+                    a.encode(into: &writer)
                     writer.writeTag(tag: 5, wireType: Int32.wireType)
-                    b.encodePayload(into: &writer)
+                    b.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -329,9 +329,9 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 5:
-                            _a = try Int32(decodingPayload: &reader)
+                            _a = try Int32(from: &reader)
                         case 5:
-                            _b = try Int32(decodingPayload: &reader)
+                            _b = try Int32(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
@@ -386,7 +386,7 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
 
                 public func encodePayload(into writer: inout WireFormatWriter) {
                     writer.writeTag(tag: 0, wireType: String.wireType)
-                    name.encodePayload(into: &writer)
+                    name.encode(into: &writer)
                 }
 
                 public func encode(into writer: inout WireFormatWriter) {
@@ -401,7 +401,7 @@ final class WireFormatFieldMacroExpansionTests: XCTestCase {
                         let (tag, wt) = try reader.readTag()
                         switch tag {
                         case 0:
-                            _name = try String(decodingPayload: &reader)
+                            _name = try String(from: &reader)
                         default:
                             try reader.skipUnknownField(wireType: wt)
                         }
