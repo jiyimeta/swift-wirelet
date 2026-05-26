@@ -12,7 +12,7 @@ let package = Package(
         .executable(name: "emit-wirelet-kotlin", targets: ["EmitWireletKotlin"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
     ],
     targets: [
         .macro(
