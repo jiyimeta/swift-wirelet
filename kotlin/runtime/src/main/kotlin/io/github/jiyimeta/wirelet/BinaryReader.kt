@@ -55,4 +55,63 @@ class BinaryReader(private val data: ByteArray) {
         for (i in 0 until len) bytes[i] = readU8().toByte()
         return String(bytes, Charsets.UTF_8)
     }
+
+    /** Read [count] raw bytes. Throws [WireFormatException.Truncated] if short. */
+    fun readBytes(count: Int): ByteArray {
+        if (count < 0) throw WireFormatException.InvalidCount(count)
+        if (count > remaining) throw WireFormatException.Truncated(count, remaining)
+        val bytes = ByteArray(count)
+        for (i in 0 until count) bytes[i] = readU8().toByte()
+        return bytes
+    }
+
+    // --- TLV primitives (mirror of Swift Wirelet runtime) ---
+
+    /** Decode an unsigned little-endian base-128 varint (up to 10 bytes). */
+    fun readVarint(): Long {
+        var result = 0L
+        var shift = 0
+        repeat(10) {
+            val byte = readU8().toInt()
+            result = result or ((byte.toLong() and 0x7FL) shl shift)
+            if (byte and 0x80 == 0) return result
+            shift += 7
+        }
+        throw WireFormatException.VarintOverflow()
+    }
+
+    /** Decode a ZigZag-encoded signed varint. */
+    fun readZigZagVarint(): Long {
+        val zz = readVarint()
+        return (zz ushr 1) xor -(zz and 1L)
+    }
+
+    /** Decode a field header into (tag, wireType). */
+    fun readTag(): Pair<Int, WireType> {
+        val raw = readVarint()
+        val wt = WireType.fromCode((raw and 0b111L).toInt())
+        val tag = (raw ushr 3).toInt()
+        return tag to wt
+    }
+
+    /**
+     * Read a length-prefixed payload, slice it, and hand a dedicated
+     * [BinaryReader] over that slice to [body]. The outer cursor is
+     * advanced past the slice regardless of how much [body] consumes.
+     */
+    fun <R> readLengthPrefixed(body: (BinaryReader) -> R): R {
+        val len = readVarint().toInt()
+        val slice = readBytes(len)
+        return body(BinaryReader(slice))
+    }
+
+    /** Skip a TLV field of the given wire type without interpreting it. */
+    fun skipUnknownField(wireType: WireType) {
+        when (wireType) {
+            WireType.VARINT -> readVarint()
+            WireType.FIXED64 -> readBytes(8)
+            WireType.LENGTH_DELIMITED -> readLengthPrefixed { /* discard */ }
+            WireType.FIXED32 -> readBytes(4)
+        }
+    }
 }
