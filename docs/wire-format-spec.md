@@ -113,9 +113,13 @@ Empty arrays are encoded as a length-0 payload (`<0x00>`).
 
 ### Dictionaries (canonical key order)
 
-Wire type `length-delimited`. Payload is a sequence of entries; each
-entry is itself a length-delimited record with two fields (tag 1: key,
-tag 2: value).
+Wire type `length-delimited`. Payload = `<varint entry-count>
+<entry-stream>` where `<entry-stream>` is the concatenation of entries.
+Each entry is `<K_payload> <V_payload>` — the key's full `encode(into:)`
+output followed by the value's full `encode(into:)` output, with no
+inner tags wrapping them. For primitive keys/values this is the bare
+payload; for nested `@WireFormat` keys/values this includes their own
+length prefix so each entry remains self-delimiting within the stream.
 
 **Canonical order:** entries are sorted by encoded-key bytes
 (lexicographic, byte-wise) before emission. This guarantees byte-identical

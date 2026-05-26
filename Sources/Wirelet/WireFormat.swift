@@ -226,13 +226,13 @@ public macro WireFormatEnum(kotlin: KotlinTarget) = #externalMacro(
 /// a `WireFormat` conformance whose encoded layout is:
 ///
 /// ```
-/// u8 discriminator   ← case's declaration-order index (0, 1, 2, …)
-/// payload            ← associated values of the selected case, encoded
-///                      as WireFormat in declaration order
+/// varint discriminator   ← case's declaration-order index (0, 1, 2, …)
+/// payload                ← associated values of the selected case, encoded
+///                          as WireFormat in declaration order
 /// ```
 ///
 /// All associated value types must conform to `WireFormat`. Cases without
-/// associated values encode as just the discriminator byte.
+/// associated values encode as just the discriminator varint.
 ///
 /// Wire-stable contract: declaration order is the discriminator. Adding
 /// a case at the end is forward-compatible (old readers throw
