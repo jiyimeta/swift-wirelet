@@ -14,13 +14,13 @@ import PackageDescription
 let package = Package(
     name: "MyApp",
     dependencies: [
-        .package(url: "https://github.com/jiyimeta/wirelet.git", from: "0.1.0"),
+        .package(url: "https://github.com/jiyimeta/swift-wirelet.git", from: "0.1.0"),
     ],
     targets: [
         .target(
             name: "MyApp",
             dependencies: [
-                .product(name: "Wirelet", package: "wirelet"),
+                .product(name: "Wirelet", package: "swift-wirelet"),
             ],
         ),
     ],

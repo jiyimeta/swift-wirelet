@@ -3,7 +3,7 @@ import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
-    name: "wirelet",
+    name: "swift-wirelet",
     platforms: [
         .macOS(.v14),
     ],

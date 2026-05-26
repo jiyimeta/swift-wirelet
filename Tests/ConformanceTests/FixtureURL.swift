@@ -4,7 +4,7 @@
 import Foundation
 
 enum FixtureLocator {
-    /// `kotlin/conformance-tests/fixtures/` at the wirelet package root.
+    /// `kotlin/conformance-tests/fixtures/` at the swift-wirelet package root.
     static let fixturesURL: URL = {
         // This file is at Tests/ConformanceTests/FixtureURL.swift.
         // Walk up two components → package root.
@@ -12,7 +12,7 @@ enum FixtureLocator {
         let packageRoot = thisFile
             .deletingLastPathComponent()  // ConformanceTests/
             .deletingLastPathComponent()  // Tests/
-            .deletingLastPathComponent()  // wirelet/
+            .deletingLastPathComponent()  // swift-wirelet/
         return packageRoot
             .appendingPathComponent("kotlin", isDirectory: true)
             .appendingPathComponent("conformance-tests", isDirectory: true)
