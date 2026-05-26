@@ -29,7 +29,7 @@ struct CLIArguments {
                 if let pkg = argv[safe: i + 1] { includePackages.insert(pkg) }
                 i += 2
             default:
-                fputs("Unknown argument: \(key)\n", stderr)
+                writeStderr("Unknown argument: \(key)\n")
                 return nil
             }
         }
@@ -49,11 +49,18 @@ extension Array {
     }
 }
 
+/// Stderr write that doesn't touch the global `stderr` var (which Swift 6.1's
+/// strict-concurrency check rejects as not Sendable). `FileHandle.standardError`
+/// is the platform-stable replacement and is concurrency-safe.
+private func writeStderr(_ s: String) {
+    FileHandle.standardError.write(Data(s.utf8))
+}
+
 guard let args = CLIArguments.parse(CommandLine.arguments) else {
-    fputs("""
+    writeStderr("""
     usage: emit-wirelet-kotlin --config <file> --source <dir> --output <dir> \
     [--include-package <name>]...
-    """, stderr)
+    """)
     exit(2)
 }
 
