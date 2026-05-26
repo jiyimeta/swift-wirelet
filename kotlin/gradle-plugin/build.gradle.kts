@@ -58,9 +58,18 @@ tasks.test { useJUnitPlatform() }
 
 publishing {
     publications {
-        // Gradle's java-gradle-plugin already registers a "pluginMaven"
-        // publication for the main artifact and a marker publication for
-        // each declared plugin. Nothing more to do here — Phase 4 will
-        // add a remote repository.
+        // Gradle's java-gradle-plugin auto-registers a "pluginMaven"
+        // publication for the main artifact plus a marker publication
+        // for each declared plugin. No manual publication needed.
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/jiyimeta/swift-wirelet")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
     }
 }

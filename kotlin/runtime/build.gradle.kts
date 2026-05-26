@@ -28,6 +28,14 @@ publishing {
             artifactId = "wirelet-runtime"
         }
     }
-    // Repositories declared in Phase 4 (publish.yml). Local development
-    // uses `publishToMavenLocal`.
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/jiyimeta/swift-wirelet")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }

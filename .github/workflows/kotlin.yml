@@ -1,0 +1,42 @@
+name: Kotlin
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: kotlin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: gradle check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Swift
+        # gradle-plugin functional tests fork `swift run emit-wirelet-kotlin`,
+        # so a Swift toolchain is required on the Kotlin CI host as well.
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+
+      - name: swift --version
+        run: swift --version
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: gradle check
+        working-directory: kotlin
+        run: ./gradlew check

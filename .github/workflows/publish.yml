@@ -1,0 +1,73 @@
+name: Publish
+
+# Tag-triggered Maven publish to GitHub Packages, plus a GitHub Release.
+# Tag format: `v<major>.<minor>.<patch>[-<pre>]` (e.g. v0.1.0-alpha.1, v0.1.0).
+# The version embedded in published artifacts is the tag minus the leading "v".
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  # Maven publish to GitHub Packages requires write:packages; release
+  # creation requires write:contents.
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    name: maven publish + github release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $version"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Sanity-check before publish
+        working-directory: kotlin
+        # Belt-and-braces: never publish a tag that doesn't pass check.
+        # Re-runs all Kotlin tests + the Swift CLI used by the gradle-plugin
+        # functional tests via swift-actions setup above.
+        run: ./gradlew check -PwireletVersion=${{ steps.version.outputs.version }}
+
+      - name: Publish wirelet-runtime + wirelet gradle-plugin
+        working-directory: kotlin
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew \
+            -PwireletVersion=${{ steps.version.outputs.version }} \
+            :runtime:publishAllPublicationsToGitHubPackagesRepository \
+            :gradle-plugin:publishAllPublicationsToGitHubPackagesRepository
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          # Pre-releases (alpha / beta / rc) get the "Set as pre-release"
+          # flag automatically based on tag suffix.
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -1,0 +1,45 @@
+name: Conformance
+
+# Cross-language conformance: Swift writes the .bin fixtures, Kotlin
+# decodes them, asserts canonical field values, then re-encodes and
+# asserts byte-equality against the committed fixture. A regression in
+# either runtime (or in the wire format itself) breaks this workflow.
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: conformance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-language:
+    name: swift + kotlin round-trip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+
+      - name: Swift ConformanceTests (produces / re-checks .bin fixtures)
+        run: swift test --filter ConformanceTests
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Kotlin :conformance-tests:test (decodes Swift fixtures)
+        working-directory: kotlin
+        run: ./gradlew :conformance-tests:test
