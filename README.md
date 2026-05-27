@@ -10,9 +10,23 @@ byte-identical encoders and decoders on both sides of the wire for free.
 > external CLI) from a single Swift source-of-truth declaration.
 > Different problem, different mechanism.
 
-**Status (2026-05-26):** pre-alpha, private repo. Phase 0-3 of the
-extraction roadmap is shipped. Tags `phase-1-complete`,
-`phase-2-complete`, `phase-3-complete` are pinned on `main`.
+**Status (2026-05-27):** pre-alpha, private repo. Phase 0-4 of the
+extraction roadmap is shipped — runtime, macros, Kotlin emitter, Gradle
+plugin, and the GitHub Actions publish pipeline are all green. Tags
+`phase-1-complete` through `phase-4-complete` are pinned on `main`;
+`v0.1.0-alpha.1` and `v0.1.0-alpha.2` are published to GitHub Packages.
+
+Pinned coordinates:
+
+| Surface | Identifier |
+|---|---|
+| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "31be47c84fddf2834b3cccc05ff955dcd1f2668e")` (= `v0.1.0-alpha.2`) |
+| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.1.0-alpha.2` |
+| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.1.0-alpha.2"` |
+
+Reading Maven artifacts requires authenticating against
+`maven.pkg.github.com/jiyimeta/swift-wirelet` with a classic GitHub
+PAT carrying `read:packages` scope.
 
 ## At a glance
 
@@ -97,7 +111,7 @@ The wire format is protobuf-style TLV — see
 ## Quick local verification
 
 ```bash
-# Swift side — all 78 tests
+# Swift side — runtime + macros + emitter + schema + CLI + conformance
 swift test
 
 # Kotlin side — runtime + conformance + Gradle plugin functional tests
