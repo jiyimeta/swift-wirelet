@@ -5,4 +5,11 @@
 @_exported import CWireletJNI
 #endif
 
-// Macro declarations are added in Task 4 / Task 8.
+/// Marker for a method that the Wirelet Observable Kotlin codegen should
+/// expose on the generated `<Name>ViewModel`. Methods without this
+/// attribute are not bridged. The macro itself synthesizes no code.
+@attached(peer)
+public macro WireletExpose() = #externalMacro(
+    module: "WireletObservableMacros",
+    type: "WireletExposeMacro"
+)
