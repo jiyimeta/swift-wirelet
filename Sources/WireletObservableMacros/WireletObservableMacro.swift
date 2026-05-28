@@ -36,9 +36,12 @@ public struct WireletObservableMacro: ExtensionMacro {
                 ))
             case .string:
                 bridges.append(renderStringBridge(className: className, property: property))
-            case .wireFormat, .wireFormatArray, .optionalPrimitive, .optionalString, .optionalWireFormat:
-                // Task 11.
-                continue
+            case .wireFormat:
+                bridges.append(renderWireFormatBridge(className: className, property: property))
+            case .wireFormatArray:
+                bridges.append(renderWireFormatArrayBridge(className: className, property: property))
+            case .optionalPrimitive, .optionalString, .optionalWireFormat:
+                bridges.append(renderOptionalBridge(className: className, property: property))
             }
         }
 
@@ -101,6 +104,81 @@ public struct WireletObservableMacro: ExtensionMacro {
                 return snapshot.withCString { cstr in
                     envValue.pointee.NewStringUTF(env, cstr)
                 }
+            }
+        """
+    }
+
+    private static func renderWireFormatBridge(
+        className: String,
+        property: WireletObservableProperty
+    ) -> String {
+        return """
+        @_cdecl("WireletObservable_\(className)_\(property.name)_track")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jbyteArray? {
+                guard let env else {
+                    return nil
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                return WireletObservableJNI.encode(snapshot, env: env)
+            }
+        """
+    }
+
+    private static func renderWireFormatArrayBridge(
+        className: String,
+        property: WireletObservableProperty
+    ) -> String {
+        return """
+        @_cdecl("WireletObservable_\(className)_\(property.name)_track")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jbyteArray? {
+                guard let env else {
+                    return nil
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                return WireletObservableJNI.encodeArray(snapshot, env: env)
+            }
+        """
+    }
+
+    private static func renderOptionalBridge(
+        className: String,
+        property: WireletObservableProperty
+    ) -> String {
+        return """
+        @_cdecl("WireletObservable_\(className)_\(property.name)_track")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jbyteArray? {
+                guard let env else {
+                    return nil
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                guard let value = snapshot else {
+                    return nil
+                }
+                return WireletObservableJNI.encode(value, env: env)
             }
         """
     }
