@@ -64,10 +64,9 @@ public enum WireletObservableJNI {
         let length = Int(envValue.pointee.GetArrayLength(env, bytes))
         var buffer = [UInt8](repeating: 0, count: length)
         buffer.withUnsafeMutableBufferPointer { raw in
-            envValue.pointee.GetByteArrayRegion(
-                env, bytes, 0, jsize(length),
-                raw.baseAddress.map { $0.withMemoryRebound(to: jbyte.self, capacity: length) { $0 } }
-            )
+            raw.withMemoryRebound(to: jbyte.self) { jbytes in
+                envValue.pointee.GetByteArrayRegion(env, bytes, 0, jsize(length), jbytes.baseAddress)
+            }
         }
         return Data(buffer)
     }
