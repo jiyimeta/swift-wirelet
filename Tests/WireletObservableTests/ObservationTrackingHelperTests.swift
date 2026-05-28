@@ -17,7 +17,7 @@ final class Counter {
         #expect(snapshot == 7)
     }
 
-    @Test func onChangeFiresOnceForMutation() async {
+    @Test func onChangeFiresOnceForMutation() {
         let counter = Counter()
         // nonisolated(unsafe): onChange fires synchronously on the mutating
         // thread (documented Observation behaviour), so no concurrent access.
@@ -39,10 +39,10 @@ final class Counter {
         _ = ObservationTrackingHelper.read(\Counter.value, on: counter) {
             fired += 1
         }
+        #expect(fired == 0, "callback must not run until a mutation occurs")
         counter.value = 1
+        #expect(fired == 1, "first mutation triggers exactly one fire")
         counter.value = 2
-        // Second mutation must NOT fire because the subscription is one-shot
-        // and we never re-armed.
-        #expect(fired == 1)
+        #expect(fired == 1, "second mutation must not re-fire — subscription is one-shot")
     }
 }

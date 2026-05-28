@@ -1,4 +1,3 @@
-// Sources/WireletObservable/ObservationTrackingHelper.swift
 import Observation
 
 /// Wraps `withObservationTracking` so the macro-generated JNI bridges and
@@ -18,12 +17,13 @@ public enum ObservationTrackingHelper {
         on subject: Subject,
         onChange: @escaping @Sendable () -> Void
     ) -> Value {
-        var snapshot: Value!
+        var snapshot: Value?
         withObservationTracking {
             snapshot = subject[keyPath: keyPath]
         } onChange: {
             onChange()
         }
-        return snapshot
+        precondition(snapshot != nil, "withObservationTracking apply closure not called synchronously")
+        return snapshot!
     }
 }
