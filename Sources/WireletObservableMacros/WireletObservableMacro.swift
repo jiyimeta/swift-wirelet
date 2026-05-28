@@ -361,14 +361,6 @@ public struct WireletObservableMacro: ExtensionMacro {
         let innerType = property.swiftTypeText.hasSuffix("?")
             ? String(property.swiftTypeText.dropLast())
             : property.swiftTypeText
-        let decodeExpr: String = {
-            if innerType == "Bool" {
-                return "guard let decoded = try? \(innerType)(decoding: data) else { return }"
-            } else {
-                return "guard let decoded = try? \(innerType)(decoding: data) else { return }"
-            }
-        }()
-        _ = decodeExpr
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
             public static func __\(property.name)_set_jni(

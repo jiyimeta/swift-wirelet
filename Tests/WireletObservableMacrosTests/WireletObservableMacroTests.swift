@@ -50,6 +50,51 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
             macros: macroSpecs
         )
     }
+
+    func testUnsupportedExposedMethodSignatureRaisesDiagnostic() {
+        assertMacroExpansion(
+            """
+            @WireletObservable
+            @Observable
+            final class Multi {
+                @WireletExpose
+                public func twoArgs(_ a: Int32, _ b: Int32) {}
+            }
+            """,
+            expandedSource: """
+            @Observable
+            final class Multi {
+                public func twoArgs(_ a: Int32, _ b: Int32) {}
+            }
+
+            extension Multi {
+                #if os(Android)
+                @_cdecl("WireletObservable_Multi_new")
+                public static func __new_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?
+                ) -> jlong {
+                    return WireletObservableJNI.retain(Multi())
+                }
+                @_cdecl("WireletObservable_Multi_release")
+                public static func __release_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong
+                ) {
+                    WireletObservableJNI.release(self_ptr, as: Multi.self)
+                }
+                #endif
+            }
+            """,
+            diagnostics: [
+                .init(
+                    message: "@WireletExpose only supports zero-arg methods or a single @WireFormat argument in Phase 1.",
+                    line: 5,
+                    column: 17
+                ),
+            ],
+            macros: macroSpecs
+        )
+    }
 }
 
 final class WireletObservablePrimitiveExpansionTests: XCTestCase {
