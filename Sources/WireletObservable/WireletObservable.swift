@@ -13,3 +13,21 @@ public macro WireletExpose() = #externalMacro(
     module: "WireletObservableMacros",
     type: "WireletExposeMacro"
 )
+
+/// Attaches Wirelet's Observable bridging to a `final class` that is also
+/// `@Observable`. Emits per-stored-property JNI bridges (`@_cdecl`) inside
+/// an `#if os(Android)` block; Apple builds see only the unmodified
+/// `@Observable` semantics.
+///
+/// Restrictions:
+/// - The class must be `final`.
+/// - The class must also carry Apple's `@Observable` attribute.
+/// - Stored properties must use one of: primitive (`Int8/16/32/64`,
+///   `UInt8/16/32/64`, `Bool`, `Float`, `Double`, `String`), `@WireFormat`
+///   struct/enum, or `Array<T>` / `Optional<T>` of the above.
+/// - `@ObservationIgnored` properties are skipped.
+@attached(extension)
+public macro WireletObservable() = #externalMacro(
+    module: "WireletObservableMacros",
+    type: "WireletObservableMacro"
+)

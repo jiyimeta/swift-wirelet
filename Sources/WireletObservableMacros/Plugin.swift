@@ -5,6 +5,6 @@ import SwiftSyntaxMacros
 struct WireletObservablePlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         WireletExposeMacro.self,
-        // WireletObservableMacro.self — added in Task 8.
+        WireletObservableMacro.self,
     ]
 }
