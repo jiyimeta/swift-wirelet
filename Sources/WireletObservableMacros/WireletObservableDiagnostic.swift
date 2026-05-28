@@ -4,6 +4,7 @@ enum WireletObservableDiagnostic: String, DiagnosticMessage {
     case notAFinalClass
     case missingObservableAttribute
     case unsupportedPropertyType
+    case unsupportedExposedMethodSignature
 
     var diagnosticID: MessageID {
         MessageID(domain: "WireletObservable", id: rawValue)
@@ -17,6 +18,8 @@ enum WireletObservableDiagnostic: String, DiagnosticMessage {
             return "@WireletObservable must be paired with @Observable."
         case .unsupportedPropertyType:
             return "Unsupported property type for @WireletObservable. Use a primitive, String, @WireFormat type, or Optional/Array thereof."
+        case .unsupportedExposedMethodSignature:
+            return "@WireletExpose only supports zero-arg methods or a single @WireFormat argument in Phase 1."
         }
     }
 }
