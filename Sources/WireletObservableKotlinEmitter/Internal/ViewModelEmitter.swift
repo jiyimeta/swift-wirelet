@@ -141,67 +141,65 @@ enum ViewModelEmitter {
 
     // MARK: - Method rendering
 
-    private enum ObservableTypeClassifierBridge {
-        static func isPrimitive(_ s: String) -> Bool {
-            switch s {
-            case "Int8", "Int16", "Int32", "Int64",
-                 "UInt8", "UInt16", "UInt32", "UInt64",
-                 "Bool", "Float", "Double":
-                return true
-            default:
-                return false
-            }
-        }
-    }
-
     private static func methodWrapper(
         method: ObservableMethod,
         config: ObservableCodegenConfig
     ) -> (publicFn: String, externalDecl: String, extraImports: Set<String>)? {
-        switch method.parameters.count {
-        case 0:
-            let nativeFn = "native\(capitalised(method.name))"
+        let nativeFn = "native\(capitalised(method.name))"
+        let params = method.parameters
+
+        if params.isEmpty {
             let publicFn = """
                 fun \(method.name)() = \(nativeFn)(nativePtr)
             """
             let external = "    private external fun \(nativeFn)(self: Long)"
             return (publicFn, external, [])
-        case 1:
-            let param = method.parameters[0]
-            let swiftType = param.typeText
-            // Only @WireFormat-typed single-arg methods are supported (mirrors
-            // the macro's `renderInvoke` rejection of primitive + String —
-            // Sources/WireletObservableMacros/WireletObservableMacro.swift:485).
-            if ObservableTypeClassifierBridge.isPrimitive(swiftType) || swiftType == "String" {
-                return nil
-            }
-            let codec = config.nameTransform.apply(to: swiftType) + "Codec"
-            let kotlinType = config.nameTransform.apply(to: swiftType)
-            // Spec line 264: surface the Swift internal parameter name (e.g.
-            // `_ item: TodoItem` → `fun add(item:)`) so the Kotlin signature feels
-            // natural to consumers. Fall back to the external label when the parameter
-            // has only one name (e.g. `func add(item:)`), and to `arg0` only as a
-            // safety net.
-            let argName: String = {
-                if param.label != "_" { return param.label }
-                if let internalName = param.internalName { return internalName }
-                return "arg0"
-            }()
-            let nativeFn = "native\(capitalised(method.name))"
-            let publicFn = """
-                fun \(method.name)(\(argName): \(kotlinType)) =
-                    \(nativeFn)(nativePtr, \(codec).encode(\(argName)))
-            """
-            let external = "    private external fun \(nativeFn)(self: Long, arg0: ByteArray)"
-            let imports: Set<String> = [
-                "\(config.modelPackage).\(kotlinType)",
-                "\(config.codecPackage).\(codec)",
-            ]
-            return (publicFn, external, imports)
-        default:
-            // >1 params unsupported (macro layer also rejects).
-            return nil
         }
+
+        var argDecls: [String] = []
+        var nativeArgs: [String] = []
+        var externalParams: [String] = ["self: Long"]
+        var imports: Set<String> = []
+
+        for (idx, param) in params.enumerated() {
+            let publicName = chooseArgName(param: param, idx: idx)
+            let info = ObservableKotlinTypeMap.invokeArg(forArgType: param.typeText, config: config)
+            argDecls.append("\(publicName): \(info.kotlinType)")
+            nativeArgs.append(info.encodeExpr(publicName))
+            externalParams.append("arg\(idx): \(info.externalFunType)")
+            switch InvokeArgClassifier.classify(param.typeText) {
+            case .wireFormat(let t):
+                let kt = config.nameTransform.apply(to: t)
+                imports.insert("\(config.modelPackage).\(kt)")
+                imports.insert("\(config.codecPackage).\(kt)Codec")
+            case .optionalWireFormat(let t):
+                let kt = config.nameTransform.apply(to: t)
+                imports.insert("\(config.modelPackage).\(kt)")
+                imports.insert("\(config.codecPackage).\(kt)Codec")
+            case .array(let t):
+                let kt = config.nameTransform.apply(to: t)
+                imports.insert("\(config.modelPackage).\(kt)")
+                imports.insert("\(config.codecPackage).\(kt)Codec")
+                imports.insert("\(config.runtimePackage).WireletList")
+            case .optionalPrimitive:
+                imports.insert("\(config.runtimePackage).WireletOptional")
+            default:
+                break
+            }
+        }
+
+        let publicFn = """
+            fun \(method.name)(\(argDecls.joined(separator: ", "))) =
+                \(nativeFn)(nativePtr, \(nativeArgs.joined(separator: ", ")))
+        """
+        let external = "    private external fun \(nativeFn)(\(externalParams.joined(separator: ", ")))"
+        return (publicFn, external, imports)
+    }
+
+    private static func chooseArgName(param: ObservableMethodParameter, idx: Int) -> String {
+        if param.label != "_" { return param.label }
+        if let internalName = param.internalName { return internalName }
+        return "arg\(idx)"
     }
 
     // MARK: - Member rendering

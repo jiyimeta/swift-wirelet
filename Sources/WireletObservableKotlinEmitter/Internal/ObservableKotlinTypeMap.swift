@@ -154,4 +154,45 @@ enum ObservableKotlinTypeMap {
         }
         return typeText
     }
+
+    // MARK: - Invoke arg mapping (method parameters)
+
+    /// Maps a Swift method-parameter type to its Kotlin representation for
+    /// `@WireletExpose` method emission. Returns the public Kotlin type, the
+    /// `external fun` parameter type, and an encode expression factory.
+    static func invokeArg(
+        forArgType swiftType: String,
+        config: ObservableCodegenConfig
+    ) -> (kotlinType: String, externalFunType: String, encodeExpr: (String) -> String) {
+        switch InvokeArgClassifier.classify(swiftType) {
+        case .primitive(_, let cast):
+            let kt = kotlinPrimitive(swiftType: cast)
+            return (kt, kt, { name in name })
+        case .bool:
+            return ("Boolean", "Boolean", { name in name })
+        case .string:
+            return ("String", "String", { name in name })
+        case .wireFormat(let typeName):
+            let kt = config.nameTransform.apply(to: typeName)
+            let codec = kt + "Codec"
+            return (kt, "ByteArray", { name in "\(codec).encode(\(name))" })
+        case .optionalPrimitive(let inner):
+            let kt = kotlinPrimitive(swiftType: inner)
+            return ("\(kt)?", "ByteArray?",
+                    { name in "WireletOptional.encode\(kt)(\(name))" })
+        case .optionalString:
+            return ("String?", "String?", { name in name })
+        case .optionalWireFormat(let typeName):
+            let kt = config.nameTransform.apply(to: typeName)
+            let codec = kt + "Codec"
+            return ("\(kt)?", "ByteArray?",
+                    { name in "\(name)?.let { \(codec).encode(it) }" })
+        case .array(let elementTypeName):
+            let kt = config.nameTransform.apply(to: elementTypeName)
+            let codec = kt + "Codec"
+            let listType = "List<\(kt)>"
+            return (listType, "ByteArray",
+                    { name in "WireletList.encode(\(name), \(codec)::encodePayload)" })
+        }
+    }
 }
