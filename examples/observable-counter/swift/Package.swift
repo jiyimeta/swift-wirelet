@@ -3,6 +3,9 @@ import PackageDescription
 
 let package = Package(
     name: "ObservableCounterJNI",
+    platforms: [
+        .macOS(.v14),
+    ],
     products: [
         // `type: .dynamic` is required so the SwiftPM cross-build for
         // aarch64-unknown-linux-android24 produces libObservableCounterJNI.so
