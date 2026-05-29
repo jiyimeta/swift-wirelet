@@ -73,4 +73,28 @@ func regenerateFixtures() throws {
     try #"{"m":{"alpha":10,"mango":7,"zeta":-1}}"#
         .write(to: dir.appendingPathComponent("map_multi_v1.json"),
                atomically: true, encoding: .utf8)
+
+    // ------- observable_burst_v1 -------
+    // Mirrors the `examples/observable-counter/` example's `add ×10` burst.
+    // Wire shape matches Kotlin's `WireletList.decode`:
+    //   [ varint count ] [ length-prefixed payload ]×count.
+    let items: [TodoItem] = (1...10).map {
+        TodoItem(id: Int32($0), title: "task #\($0)", done: false)
+    }
+    var burstWriter = WireFormatWriter()
+    burstWriter.writeVarint(UInt64(items.count))
+    for item in items {
+        burstWriter.writeLengthPrefixed { inner in
+            item.encodePayload(into: &inner)
+        }
+    }
+    try burstWriter.data
+        .write(to: dir.appendingPathComponent("observable_burst_v1.bin"))
+    let burstJSON = #"{"items":["# +
+        items.map { #"{"id":\#($0.id),"title":"\#($0.title)","done":\#($0.done)}"# }
+            .joined(separator: ",") +
+        "]}"
+    try burstJSON.write(
+        to: dir.appendingPathComponent("observable_burst_v1.json"),
+        atomically: true, encoding: .utf8)
 }

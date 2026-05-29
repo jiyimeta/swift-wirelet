@@ -64,6 +64,23 @@ public struct OptionalHolderV2 {
     }
 }
 
+// Observable bridge fixture (Phase 4). The shape mirrors the example's
+// `TodoItem` declared at `examples/observable-counter/swift/Sources/ObservableCounterJNI/TodoItem.swift` —
+// keep the field order in sync (id, title, done) or the byte-equal
+// re-encode assertion in `observableBurst()` will break.
+@WireFormat
+public struct TodoItem {
+    public var id: Int32
+    public var title: String
+    public var done: Bool
+
+    public init(id: Int32, title: String, done: Bool) {
+        self.id = id
+        self.title = title
+        self.done = done
+    }
+}
+
 // Multi-entry Map fixture (Task 2.10 follow-up). Exercises the
 // canonical-key-sort emission in both Swift's Dictionary conformance and
 // the Kotlin emitter — proving multi-entry Maps round-trip byte-identically
