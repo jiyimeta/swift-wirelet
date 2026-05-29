@@ -85,6 +85,75 @@ val out = PointCodec.encode(p)       // same bytes Swift produced
 The wire format is protobuf-style TLV — see
 [`docs/wire-format-spec.md`](docs/wire-format-spec.md) for byte layout.
 
+## Observable bridge
+
+`@WireletObservable` extends the `@WireFormat`-driven IPC pipeline to live
+view-model state. Declare an `@Observable` Swift class once; cross-compile
+it into a JNI `.so` for `aarch64-unknown-linux-android28`; consume it from
+an Android Compose app as a Kotlin `ViewModel` whose properties are
+`StateFlow<T>`s. Mutations on the Swift side propagate to Kotlin
+collectors via JNI callbacks driven by Apple's Observation framework.
+
+```swift
+import Observation
+import WireletObservable
+
+@WireletObservable
+@Observable
+public final class TodoListVM {
+    public var items: [TodoItem] = []   // → StateFlow<List<TodoItem>>
+    public var totalCount: Int32 = 0    // → StateFlow<Int>
+
+    @WireletExpose
+    public func add(_ item: TodoItem) {
+        items.append(item)
+        totalCount += 1
+    }
+}
+```
+
+```kotlin
+// auto-generated TodoListVMViewModel.kt
+class TodoListVMViewModel : ViewModel() {
+    val items: StateFlow<List<TodoItem>> = …
+    val totalCount: StateFlow<Int> = …
+    fun add(item: TodoItem) { … }   // crosses JNI, mutates Swift state,
+                                    //   observation pushes new StateFlow values
+}
+
+// Compose use site
+@Composable
+fun TodoScreen(vm: TodoListVMViewModel = viewModel()) {
+    val items by vm.items.collectAsStateWithLifecycle()
+    val total by vm.totalCount.collectAsStateWithLifecycle()
+    // …
+}
+```
+
+What gets generated:
+
+- **Swift side** (compile time + SwiftPM build tool plugin):
+  - A `@_cdecl` global function per observable property and per
+    `@WireletExpose` method, emitted by the `WireletObservableBridges`
+    build tool plugin.
+  - A `JNI_OnLoad` entry point that registers every `@_cdecl` symbol via
+    `RegisterNatives`, driven by a sidecar `.wirelet-observable-jni.json`
+    written by the Wirelet Gradle plugin.
+- **Kotlin side** (Gradle task, via `emit-wirelet-observable`):
+  - `<Class>ViewModel.kt` — extends `androidx.lifecycle.ViewModel`,
+    holds a long ptr to the Swift instance, exposes one `StateFlow<T>`
+    per observable property and one regular fun per `@WireletExpose`.
+  - `<WireFormat>Codec.kt` for any wire-format types referenced in the
+    view-model (same codec emitter as the base `@WireFormat` pipeline).
+
+Wire it into a project by applying the `io.github.jiyimeta.wirelet`
+Gradle plugin and adding an `observable { … }` block alongside the
+existing `wirelet { … }` block — see
+[`docs/getting-started-kotlin.md`](docs/getting-started-kotlin.md) for
+the full DSL and
+[`examples/observable-counter/`](examples/observable-counter/) for a
+working Compose app.
+
 ## Repository layout
 
 | Path | What |
