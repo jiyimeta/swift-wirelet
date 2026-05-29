@@ -3,12 +3,14 @@ import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-public struct WireletObservableMacro: PeerMacro {
+public struct WireletObservableMacro: ExtensionMacro {
     public static func expansion(
         of node: AttributeSyntax,
-        providingPeersOf declaration: some DeclSyntaxProtocol,
+        attachedTo declaration: some DeclGroupSyntax,
+        providingExtensionsOf type: some TypeSyntaxProtocol,
+        conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
-    ) throws -> [DeclSyntax] {
+    ) throws -> [ExtensionDeclSyntax] {
         guard let classDecl = declaration.as(ClassDeclSyntax.self) else {
             context.diagnose(Diagnostic(node: Syntax(node), message: WireletObservableDiagnostic.notAFinalClass))
             return []
@@ -21,7 +23,7 @@ public struct WireletObservableMacro: PeerMacro {
             context.diagnose(Diagnostic(node: Syntax(classDecl.name), message: WireletObservableDiagnostic.missingObservableAttribute))
             return []
         }
-        let className = classDecl.name.text
+        let className = type.trimmed.description
         let properties = WireletObservableProperty.collect(classDecl)
             .filter { !$0.isIgnored }
 
@@ -91,11 +93,14 @@ public struct WireletObservableMacro: PeerMacro {
         }
 
         let body: DeclSyntax = """
-        #if os(Android)
-        \(raw: bridges.joined(separator: "\n\n"))
-        #endif
+        extension \(type.trimmed) {
+            #if os(Android)
+            \(raw: bridges.joined(separator: "\n    "))
+            #endif
+        }
         """
-        return [body]
+        guard let ext = body.as(ExtensionDeclSyntax.self) else { return [] }
+        return [ext]
     }
 
     // MARK: - Track bridges
@@ -113,18 +118,18 @@ public struct WireletObservableMacro: PeerMacro {
         }()
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
-        public func __\(className)_\(property.name)_track_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ on_change: jobject?
-        ) -> \(jniType) {
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            let runnable = JObject(env: env, jobject: on_change)
-            let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
-                runnable?.call(method: "run")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> \(jniType) {
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                return \(returnExpr)
             }
-            return \(returnExpr)
-        }
         """
     }
 
@@ -134,21 +139,21 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
-        public func __\(className)_\(property.name)_track_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ on_change: jobject?
-        ) -> jstring? {
-            guard let env, let envValue = env.pointee else { return nil }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            let runnable = JObject(env: env, jobject: on_change)
-            let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
-                runnable?.call(method: "run")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jstring? {
+                guard let env, let envValue = env.pointee else { return nil }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                return snapshot.withCString { cstr in
+                    envValue.pointee.NewStringUTF(env, cstr)
+                }
             }
-            return snapshot.withCString { cstr in
-                envValue.pointee.NewStringUTF(env, cstr)
-            }
-        }
         """
     }
 
@@ -158,21 +163,21 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
-        public func __\(className)_\(property.name)_track_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ on_change: jobject?
-        ) -> jbyteArray? {
-            guard let env else {
-                return nil
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jbyteArray? {
+                guard let env else {
+                    return nil
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                return WireletObservableJNI.encode(snapshot, env: env)
             }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            let runnable = JObject(env: env, jobject: on_change)
-            let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
-                runnable?.call(method: "run")
-            }
-            return WireletObservableJNI.encode(snapshot, env: env)
-        }
         """
     }
 
@@ -182,21 +187,21 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
-        public func __\(className)_\(property.name)_track_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ on_change: jobject?
-        ) -> jbyteArray? {
-            guard let env else {
-                return nil
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jbyteArray? {
+                guard let env else {
+                    return nil
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                return WireletObservableJNI.encodeArray(snapshot, env: env)
             }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            let runnable = JObject(env: env, jobject: on_change)
-            let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
-                runnable?.call(method: "run")
-            }
-            return WireletObservableJNI.encodeArray(snapshot, env: env)
-        }
         """
     }
 
@@ -206,24 +211,24 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
-        public func __\(className)_\(property.name)_track_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ on_change: jobject?
-        ) -> jbyteArray? {
-            guard let env else {
-                return nil
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jbyteArray? {
+                guard let env else {
+                    return nil
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                guard let value = snapshot else {
+                    return nil
+                }
+                return WireletObservableJNI.encode(value, env: env)
             }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            let runnable = JObject(env: env, jobject: on_change)
-            let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
-                runnable?.call(method: "run")
-            }
-            guard let value = snapshot else {
-                return nil
-            }
-            return WireletObservableJNI.encode(value, env: env)
-        }
         """
     }
 
@@ -233,22 +238,22 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
-        public func __\(className)_\(property.name)_track_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ on_change: jobject?
-        ) -> jstring? {
-            guard let env, let envValue = env.pointee else { return nil }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            let runnable = JObject(env: env, jobject: on_change)
-            let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
-                runnable?.call(method: "run")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jstring? {
+                guard let env, let envValue = env.pointee else { return nil }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                guard let value = snapshot else { return nil }
+                return value.withCString { cstr in
+                    envValue.pointee.NewStringUTF(env, cstr)
+                }
             }
-            guard let value = snapshot else { return nil }
-            return value.withCString { cstr in
-                envValue.pointee.NewStringUTF(env, cstr)
-            }
-        }
         """
     }
 
@@ -257,23 +262,23 @@ public struct WireletObservableMacro: PeerMacro {
     private static func renderConstructor(className: String) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_new")
-        public func __\(className)_new_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?
-        ) -> jlong {
-            return WireletObservableJNI.retain(\(className)())
-        }
+            public static func __new_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?
+            ) -> jlong {
+                return WireletObservableJNI.retain(\(className)())
+            }
         """
     }
 
     private static func renderDestructor(className: String) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_release")
-        public func __\(className)_release_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong
-        ) {
-            WireletObservableJNI.release(self_ptr, as: \(className).self)
-        }
+            public static func __release_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong
+            ) {
+                WireletObservableJNI.release(self_ptr, as: \(className).self)
+            }
         """
     }
 
@@ -292,14 +297,14 @@ public struct WireletObservableMacro: PeerMacro {
         }()
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: \(jniType)
-        ) {
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            \(assignBody)
-        }
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: \(jniType)
+            ) {
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                \(assignBody)
+            }
         """
     }
 
@@ -309,18 +314,18 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: jstring?
-        ) {
-            guard let env, let envValue = env.pointee, let new_value else { return }
-            let cstr = envValue.pointee.GetStringUTFChars(env, new_value, nil)
-            defer { envValue.pointee.ReleaseStringUTFChars(env, new_value, cstr) }
-            guard let cstr else { return }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            me.\(property.name) = String(cString: cstr)
-        }
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: jstring?
+            ) {
+                guard let env, let envValue = env.pointee, let new_value else { return }
+                let cstr = envValue.pointee.GetStringUTFChars(env, new_value, nil)
+                defer { envValue.pointee.ReleaseStringUTFChars(env, new_value, cstr) }
+                guard let cstr else { return }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                me.\(property.name) = String(cString: cstr)
+            }
         """
     }
 
@@ -331,17 +336,17 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: jbyteArray?
-        ) {
-            guard let env, let new_value else { return }
-            let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
-            guard let decoded = try? \(typeName)(decoding: data) else { return }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            me.\(property.name) = decoded
-        }
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: jbyteArray?
+            ) {
+                guard let env, let new_value else { return }
+                let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
+                guard let decoded = try? \(typeName)(decoding: data) else { return }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                me.\(property.name) = decoded
+            }
         """
     }
 
@@ -352,24 +357,24 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: jbyteArray?
-        ) {
-            guard let env, let new_value else { return }
-            let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
-            var reader = WireFormatReader(data: data)
-            guard let count = try? reader.readVarint() else { return }
-            var elements: [\(elementTypeName)] = []
-            elements.reserveCapacity(Int(count))
-            for _ in 0..<Int(count) {
-                guard let element = try? \(elementTypeName)(from: &reader) else { return }
-                elements.append(element)
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: jbyteArray?
+            ) {
+                guard let env, let new_value else { return }
+                let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
+                var reader = WireFormatReader(data: data)
+                guard let count = try? reader.readVarint() else { return }
+                var elements: [\(elementTypeName)] = []
+                elements.reserveCapacity(Int(count))
+                for _ in 0..<Int(count) {
+                    guard let element = try? \(elementTypeName)(from: &reader) else { return }
+                    elements.append(element)
+                }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                me.\(property.name) = elements
             }
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            me.\(property.name) = elements
-        }
         """
     }
 
@@ -385,20 +390,20 @@ public struct WireletObservableMacro: PeerMacro {
             : property.swiftTypeText
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: jbyteArray?
-        ) {
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            guard let env, let new_value else {
-                me.\(property.name) = nil
-                return
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: jbyteArray?
+            ) {
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                guard let env, let new_value else {
+                    me.\(property.name) = nil
+                    return
+                }
+                let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
+                guard let decoded = try? \(innerType)(decoding: data) else { return }
+                me.\(property.name) = decoded
             }
-            let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
-            guard let decoded = try? \(innerType)(decoding: data) else { return }
-            me.\(property.name) = decoded
-        }
         """
     }
 
@@ -408,21 +413,21 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: jstring?
-        ) {
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            guard let env, let envValue = env.pointee, let new_value else {
-                me.\(property.name) = nil
-                return
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: jstring?
+            ) {
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                guard let env, let envValue = env.pointee, let new_value else {
+                    me.\(property.name) = nil
+                    return
+                }
+                let cstr = envValue.pointee.GetStringUTFChars(env, new_value, nil)
+                defer { envValue.pointee.ReleaseStringUTFChars(env, new_value, cstr) }
+                guard let cstr else { return }
+                me.\(property.name) = String(cString: cstr)
             }
-            let cstr = envValue.pointee.GetStringUTFChars(env, new_value, nil)
-            defer { envValue.pointee.ReleaseStringUTFChars(env, new_value, cstr) }
-            guard let cstr else { return }
-            me.\(property.name) = String(cString: cstr)
-        }
         """
     }
 
@@ -433,20 +438,20 @@ public struct WireletObservableMacro: PeerMacro {
     ) -> String {
         return """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
-        public func __\(className)_\(property.name)_set_jni(
-            _ env: UnsafeMutablePointer<JNIEnv?>?,
-            _ self_ptr: jlong,
-            _ new_value: jbyteArray?
-        ) {
-            let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            guard let env, let new_value else {
-                me.\(property.name) = nil
-                return
+            public static func __\(property.name)_set_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ new_value: jbyteArray?
+            ) {
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                guard let env, let new_value else {
+                    me.\(property.name) = nil
+                    return
+                }
+                let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
+                guard let decoded = try? \(typeName)(decoding: data) else { return }
+                me.\(property.name) = decoded
             }
-            let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
-            guard let decoded = try? \(typeName)(decoding: data) else { return }
-            me.\(property.name) = decoded
-        }
         """
     }
 
@@ -464,13 +469,13 @@ public struct WireletObservableMacro: PeerMacro {
             // Zero-arg invoke
             return """
             @_cdecl("WireletObservable_\(className)_\(methodName)_invoke")
-            public func __\(className)_\(methodName)_invoke_jni(
-                _ env: UnsafeMutablePointer<JNIEnv?>?,
-                _ self_ptr: jlong
-            ) {
-                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-                me.\(methodName)()
-            }
+                public static func __\(methodName)_invoke_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong
+                ) {
+                    let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                    me.\(methodName)()
+                }
             """
         }
 
@@ -488,17 +493,17 @@ public struct WireletObservableMacro: PeerMacro {
             // One-arg @WireFormat invoke
             return """
             @_cdecl("WireletObservable_\(className)_\(methodName)_invoke")
-            public func __\(className)_\(methodName)_invoke_jni(
-                _ env: UnsafeMutablePointer<JNIEnv?>?,
-                _ self_ptr: jlong,
-                _ arg0: jbyteArray?
-            ) {
-                guard let env, let arg0 else { return }
-                let data = WireletObservableJNI.dataFromByteArray(arg0, env: env)
-                guard let decoded = try? \(argType)(decoding: data) else { return }
-                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-                me.\(methodName)(\(argLabel == "_" ? "" : argLabel + ": ")decoded)
-            }
+                public static func __\(methodName)_invoke_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ arg0: jbyteArray?
+                ) {
+                    guard let env, let arg0 else { return }
+                    let data = WireletObservableJNI.dataFromByteArray(arg0, env: env)
+                    guard let decoded = try? \(argType)(decoding: data) else { return }
+                    let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                    me.\(methodName)(\(argLabel == "_" ? "" : argLabel + ": ")decoded)
+                }
             """
         }
 

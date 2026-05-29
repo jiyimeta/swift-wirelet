@@ -26,7 +26,7 @@ public macro WireletExpose() = #externalMacro(
 ///   `UInt8/16/32/64`, `Bool`, `Float`, `Double`, `String`), `@WireFormat`
 ///   struct/enum, or `Array<T>` / `Optional<T>` of the above.
 /// - `@ObservationIgnored` properties are skipped.
-@attached(peer, names: arbitrary)
+@attached(extension)
 public macro WireletObservable() = #externalMacro(
     module: "WireletObservableMacros",
     type: "WireletObservableMacro"
