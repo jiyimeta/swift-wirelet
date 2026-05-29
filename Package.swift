@@ -12,6 +12,9 @@ let package = Package(
         .library(name: "WireletObservable", targets: ["WireletObservable"]),
         .executable(name: "emit-wirelet-kotlin", targets: ["EmitWireletKotlin"]),
         .executable(name: "emit-wirelet-observable", targets: ["EmitWireletObservable"]),
+        .library(name: "WireletObservableSwiftBridgesEmitter", targets: ["WireletObservableSwiftBridgesEmitter"]),
+        .executable(name: "emit-wirelet-observable-swift-bridges", targets: ["EmitWireletObservableSwiftBridges"]),
+        .plugin(name: "WireletObservableBridges", targets: ["WireletObservableBridges"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
@@ -87,6 +90,23 @@ let package = Package(
                 "WireletObservableKotlinEmitter",
             ]
         ),
+        .target(
+            name: "WireletObservableSwiftBridgesEmitter",
+            dependencies: [
+                "WireletObservableSchema",
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
+        .executableTarget(
+            name: "EmitWireletObservableSwiftBridges",
+            dependencies: ["WireletObservableSwiftBridgesEmitter"]
+        ),
+        .plugin(
+            name: "WireletObservableBridges",
+            capability: .buildTool(),
+            dependencies: ["EmitWireletObservableSwiftBridges"]
+        ),
         .testTarget(
             name: "WireletRuntimeTests",
             dependencies: ["Wirelet"]
@@ -151,6 +171,10 @@ let package = Package(
                 "WireletObservableSchema",
             ],
             resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "WireletObservableSwiftBridgesEmitterTests",
+            dependencies: ["WireletObservableSwiftBridgesEmitter"]
         ),
     ]
 )
