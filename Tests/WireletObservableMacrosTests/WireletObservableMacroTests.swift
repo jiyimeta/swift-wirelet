@@ -352,8 +352,8 @@ final class WireletObservableCompositeExpansionTests: XCTestCase {
                     _ env: UnsafeMutablePointer<JNIEnv?>?,
                     _ self_ptr: jlong,
                     _ on_change: jobject?
-                ) -> jbyteArray? {
-                    guard let env else {
+                ) -> jstring? {
+                    guard let env, let envValue = env.pointee else {
                         return nil
                     }
                     let me = WireletObservableJNI.unwrap(self_ptr) as MaybeVM
@@ -364,7 +364,9 @@ final class WireletObservableCompositeExpansionTests: XCTestCase {
                     guard let value = snapshot else {
                         return nil
                     }
-                    return WireletObservableJNI.encode(value, env: env)
+                    return value.withCString { cstr in
+                        envValue.pointee.NewStringUTF(env, cstr)
+                    }
                 }
                 @_cdecl("WireletObservable_MaybeVM_new")
                 public static func __new_jni(

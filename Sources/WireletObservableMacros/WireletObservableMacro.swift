@@ -42,8 +42,10 @@ public struct WireletObservableMacro: ExtensionMacro {
                 bridges.append(renderWireFormatBridge(className: className, property: property))
             case .wireFormatArray:
                 bridges.append(renderWireFormatArrayBridge(className: className, property: property))
-            case .optionalPrimitive, .optionalString, .optionalWireFormat:
+            case .optionalPrimitive, .optionalWireFormat:
                 bridges.append(renderOptionalBridge(className: className, property: property))
+            case .optionalString:
+                bridges.append(renderOptionalStringTrackBridge(className: className, property: property))
             }
         }
 
@@ -226,6 +228,31 @@ public struct WireletObservableMacro: ExtensionMacro {
                     return nil
                 }
                 return WireletObservableJNI.encode(value, env: env)
+            }
+        """
+    }
+
+    private static func renderOptionalStringTrackBridge(
+        className: String,
+        property: WireletObservableProperty
+    ) -> String {
+        return """
+        @_cdecl("WireletObservable_\(className)_\(property.name)_track")
+            public static func __\(property.name)_track_jni(
+                _ env: UnsafeMutablePointer<JNIEnv?>?,
+                _ self_ptr: jlong,
+                _ on_change: jobject?
+            ) -> jstring? {
+                guard let env, let envValue = env.pointee else { return nil }
+                let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
+                let runnable = JObject(env: env, jobject: on_change)
+                let snapshot = ObservationTrackingHelper.read(\\.\(property.name), on: me) {
+                    runnable?.call(method: "run")
+                }
+                guard let value = snapshot else { return nil }
+                return value.withCString { cstr in
+                    envValue.pointee.NewStringUTF(env, cstr)
+                }
             }
         """
     }
