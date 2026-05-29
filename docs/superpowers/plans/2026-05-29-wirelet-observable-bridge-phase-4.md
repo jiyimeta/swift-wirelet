@@ -5,7 +5,7 @@
 **Goal:** Land `examples/observable-counter/` — the first end-to-end consumer of the Observable bridge — and extend CI to smoke it on an Android emulator. A Swift `@WireletObservable @Observable final class TodoListVM` cross-compiles to `libObservableCounterJNI.so` for `aarch64-unknown-linux-android`; the bundled `io.github.jiyimeta.wirelet` Gradle plugin regenerates `TodoListVMViewModel.kt` + `TodoItemCodec.kt`; an Android Compose app collects the resulting `StateFlow<…>` properties. An instrumented test asserts a "create → add ×10 → snapshot" burst lands the expected `StateFlow` values. A `kotlin/conformance-tests/fixtures/observable_burst_v1.{bin,json}` fixture locks the wire-level encoding of that same burst sequence. CI gets a new `observable-counter-emulator` job in `examples.yml` that performs the build + emulator smoke from scratch.
 
 **Architecture:**
-- `examples/observable-counter/swift/` — single SwiftPM package, one `.library(type: .dynamic)` target (`ObservableCounterJNI`) containing both `TodoItem` (`@WireFormat`) and `TodoListVM` (`@WireletObservable @Observable`). Apple builds compile the macro to nothing observable; the cross-build for `aarch64-unknown-linux-android24` produces `libObservableCounterJNI.so` carrying the macro-emitted `@_cdecl` symbols and the Swift Android runtime dependency chain.
+- `examples/observable-counter/swift/` — single SwiftPM package, one `.library(type: .dynamic)` target (`ObservableCounterJNI`) containing both `TodoItem` (`@WireFormat`) and `TodoListVM` (`@WireletObservable @Observable`). Apple builds compile the macro to nothing observable; the cross-build for `aarch64-unknown-linux-android28` produces `libObservableCounterJNI.so` carrying the macro-emitted `@_cdecl` symbols and the Swift Android runtime dependency chain.
 - `examples/observable-counter/android-app/` — Gradle composite root with an `app/` Android module. Applies `io.github.jiyimeta.wirelet` (resolved from `mavenLocal()`); registers one `wirelet.sources` set for the `TodoItem` codec/model and one `wirelet.observable` set for the `TodoListVM` view-model. Compose UI collects `viewModel.items`, `viewModel.totalCount`. Native libs are layered: the project's `libObservableCounterJNI.so` is placed under `app/src/main/jniLibs/arm64-v8a/`, alongside the Swift Android runtime `lib*.so` set copied from the SDK's `swift-resources/.../android/` directory.
 - `examples/observable-counter/build.sh` — orchestrator. Publishes `wirelet-runtime`, `wirelet-observable-runtime`, `wirelet-gradle-plugin` to `mavenLocal` with a pinned local version, cross-compiles the Swift package, stages all required `.so` files into `jniLibs`, then `./gradlew assembleDebug`.
 - `examples/observable-counter/run-emulator.sh` — assumes an emulator is already booted; installs the debug APK, runs the instrumented test, prints PASS/FAIL.
@@ -13,7 +13,7 @@
 - `.github/workflows/examples.yml` gains an `observable-counter-emulator` job, ubuntu-latest, using `reactivecircus/android-emulator-runner@v2` to provision an emulator, with steps to install Swift 6.3.2 + the matching Android Swift SDK before running `verify.sh`.
 - `kotlin/conformance-tests/fixtures/observable_burst_v1.bin` — a single TLV stream that encodes the canonical `add ×10` burst's final `items: [TodoItem]` array using the same `WireFormat` codec the runtime emits. The matched `.json` describes the expected list element-for-element. `FixtureRunner.kt` gains a `@Test observableBurst()` that decodes the `.bin` and round-trips it via `WireletList`.
 
-**Tech Stack:** Swift 6.3.2 (host + Android SDK), Swift Android SDK `swift-6.3.2-RELEASE_android` (target triple `aarch64-unknown-linux-android24`, NDK r26.1+ bundled in the SDK artifactbundle), Android Gradle Plugin 8.x, Kotlin 2.x, Compose Compiler / BOM, Android API 34 system image (Google APIs, ARM64 emulator on CI via KVM-enabled Linux runners), `androidx.lifecycle.viewmodel-compose`, `kotlinx-coroutines-android`, `androidx.test:runner` / `androidx.test.ext:junit` for instrumented tests, `reactivecircus/android-emulator-runner@v2` for the CI emulator.
+**Tech Stack:** Swift 6.3.2 (host + Android SDK), Swift Android SDK `swift-6.3.2-RELEASE_android` (target triple `aarch64-unknown-linux-android28`, NDK r26.1+ bundled in the SDK artifactbundle), Android Gradle Plugin 8.x, Kotlin 2.x, Compose Compiler / BOM, Android API 34 system image (Google APIs, ARM64 emulator on CI via KVM-enabled Linux runners), `androidx.lifecycle.viewmodel-compose`, `kotlinx-coroutines-android`, `androidx.test:runner` / `androidx.test.ext:junit` for instrumented tests, `reactivecircus/android-emulator-runner@v2` for the CI emulator.
 
 ---
 
@@ -153,7 +153,7 @@ let package = Package(
     name: "ObservableCounterJNI",
     products: [
         // `type: .dynamic` is required so the SwiftPM cross-build for
-        // aarch64-unknown-linux-android24 produces libObservableCounterJNI.so
+        // aarch64-unknown-linux-android28 produces libObservableCounterJNI.so
         // (vs an .a static archive that Android cannot dlopen).
         .library(
             name: "ObservableCounterJNI",
@@ -294,11 +294,11 @@ Run:
 ```bash
 swift build \
   --package-path examples/observable-counter/swift \
-  --swift-sdk aarch64-unknown-linux-android24 \
+  --swift-sdk aarch64-unknown-linux-android28 \
   -c release
 ```
 Expected: completes without errors. Output:
-`.build/aarch64-unknown-linux-android24/release/libObservableCounterJNI.so`.
+`.build/aarch64-unknown-linux-android28/release/libObservableCounterJNI.so`.
 
 If the build fails citing a missing `-aapt`, `-clang`, or
 `libc++_shared.so`, the SDK is installed but the NDK sysroot inside the
@@ -310,7 +310,7 @@ against the artifactbundle URL.
 Run:
 ```bash
 nm -D --defined-only \
-  examples/observable-counter/swift/.build/aarch64-unknown-linux-android24/release/libObservableCounterJNI.so \
+  examples/observable-counter/swift/.build/aarch64-unknown-linux-android28/release/libObservableCounterJNI.so \
   | grep WireletObservable_TodoListVM_ \
   | sort
 ```
@@ -455,7 +455,7 @@ android {
 
     defaultConfig {
         applicationId = "io.github.jiyimeta.observablecounter"
-        minSdk = 24
+        minSdk = 28
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
@@ -860,7 +860,7 @@ Run:
 ```bash
 DEST="examples/observable-counter/android-app/app/src/main/jniLibs/arm64-v8a"
 mkdir -p "$DEST"
-cp examples/observable-counter/swift/.build/aarch64-unknown-linux-android24/release/libObservableCounterJNI.so "$DEST/"
+cp examples/observable-counter/swift/.build/aarch64-unknown-linux-android28/release/libObservableCounterJNI.so "$DEST/"
 cp "$SDK_LIB"/lib*.so "$DEST/"
 LIBCXX_SRC="$(find "$HOME/Library/org.swift.swiftpm/swift-sdks/swift-6.3.2-RELEASE_android.artifactbundle/swift-android/ndk-sysroot" -name libc++_shared.so | grep aarch64 | head -1)"
 cp "$LIBCXX_SRC" "$DEST/"
@@ -1002,7 +1002,7 @@ Common failure modes:
 # Build the observable-counter example end-to-end.
 #
 # 1. Publish wirelet-runtime + wirelet-observable-runtime + plugin to mavenLocal.
-# 2. Cross-compile libObservableCounterJNI.so for aarch64-unknown-linux-android24.
+# 2. Cross-compile libObservableCounterJNI.so for aarch64-unknown-linux-android28.
 # 3. Stage the .so + Swift Android runtime + libc++_shared.so into jniLibs.
 # 4. assembleDebug.
 #
@@ -1015,7 +1015,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 SDK_ID="swift-6.3.2-RELEASE_android"
 SDK_LIB="$HOME/Library/org.swift.swiftpm/swift-sdks/${SDK_ID}.artifactbundle/swift-android/swift-resources/usr/lib/swift-aarch64/android"
 SDK_NDK="$HOME/Library/org.swift.swiftpm/swift-sdks/${SDK_ID}.artifactbundle/swift-android/ndk-sysroot"
-ANDROID_TRIPLE="aarch64-unknown-linux-android24"
+ANDROID_TRIPLE="aarch64-unknown-linux-android28"
 SWIFT_PKG="$HERE/swift"
 ANDROID_APP="$HERE/android-app"
 JNI_DEST="$ANDROID_APP/app/src/main/jniLibs/arm64-v8a"
@@ -1589,3 +1589,83 @@ build artifacts gitignored in Task 1).
 
 1. **Phase 5 plan** — README "Observable bridge" feature section, swap the `0.0.1-local` sentinel for `0.2.0-SNAPSHOT` then the released `0.2.0`, wire `wirelet-observable-runtime` into `publish.yml`, cut the `v0.2.0` tag.
 2. Optional: factor a `wirelet-observable-core` (no AndroidX) out of `wirelet-observable-runtime` if a non-Android consumer surfaces (per design spec deferred items).
+
+---
+
+## Implementation retrospective
+
+This section captures the surprises and design shifts that happened during execution. The plan above is the *intent*; the notes below explain what shifted and why.
+
+### Swift Android SDK target triple: `android24` → `android28`
+
+The plan called for `aarch64-unknown-linux-android24`. The installed Swift Android SDK `swift-6.3.2-RELEASE_android` bundle only ships toolchains for API 28 and higher (`swift-sdk.json` enumerates the supported `targetTriples`). The `swift sdk configure ... android24 --show-configuration` call succeeds with the wrong triple (configure is lenient), but `swift build --swift-sdk android24` rejects it. Switched everything in this plan + scripts + `examples.yml` to `aarch64-unknown-linux-android28`.
+
+The downstream consequence: Android `minSdk` had to follow to 28 (the cross-built `.so` consumes libc symbols only available from API 28). Documents and `:app/build.gradle.kts` updated accordingly.
+
+### Phase 1 redesign: macro → SwiftPM build tool plugin
+
+The Phase 1 plan assumed `@WireletObservable` was a macro that emits `@_cdecl`-decorated JNI bridges directly. The Apple test suite passed because all generated code was wrapped in `#if os(Android) ... #endif`, so the macro expansion was never actually compiled. Cross-compilation revealed that Swift forbids `@_cdecl` on anything that isn't a global function:
+
+    error: @_cdecl can only be applied to global functions
+
+Static methods inside an `extension`, members of a class, conformances inside structs — all rejected. And the various peer / member / extension macro shapes all run into Swift's nominal scope rules:
+
+- `@attached(peer, names: arbitrary)` is rejected at file scope ("peer macros are not allowed to introduce arbitrary names at global scope").
+- `@attached(peer, names: prefixed(__))` only allows a single name in the form `__<DeclName>` — not the dozens of per-property bridges we need.
+- Attached extension macros can't emit global functions.
+
+The canonical Swift escape hatch for "generate top-level `@_cdecl` global functions from class metadata" is a SwiftPM build tool plugin. Phase 1 was redesigned: `@WireletObservable` is now a marker-only attached macro (diagnostics, no expansion), and the actual JNI bridges are emitted by a separate `WireletObservableSwiftBridgesEmitter` library, driven by a new `EmitWireletObservableSwiftBridges` CLI executable, orchestrated by a `WireletObservableBridges` SwiftPM `BuildToolPlugin`. The render functions ported over from the macro one-to-one.
+
+This shift introduced 5 commits ahead of Task 1 in this plan:
+
+- `1a69263` refactor(observable): strip @WireletObservable macro to diagnostic-only marker
+- `2de0e9e` feat(observable): add WireletObservableSwiftBridgesEmitter library
+- `7ba22f5` feat(observable): add EmitWireletObservableSwiftBridges CLI
+- `44001e7` feat(observable): add WireletObservableBridges SwiftPM build tool plugin
+- `d66db5b` feat(observable-counter): apply WireletObservableBridges plugin to example
+
+### Three independent Phase 1 bugs caught during cross-compile
+
+These were latent — Phase 1 only verified the Apple build where the `#if os(Android)` guard hid the code entirely:
+
+1. `Sources/WireletObservable/WireletObservableJNI.swift` — needed `import Foundation` for `Data`. Apple gets Foundation transitively; Android doesn't.
+2. `Sources/WireletObservable/JObject.swift` — `CallVoidMethod` is variadic-C; Swift cannot call variadic C function pointers. Replaced with `CallVoidMethodA(env, obj, methodID, nil)`.
+3. `Sources/WireletObservable/JObject.swift` — `JObject` had to become `@unchecked Sendable` so the macro-generated `@Sendable` `onChange` closure could capture it. JNI global refs are thread-safe so the claim is sound.
+
+Landed as `6c56b87` (Android-only build errors in JObject + JNI helpers).
+
+### JNI symbol resolution — RegisterNatives required
+
+Phase 1 spec line 320 said "`external fun` symbol names follow the macro-side `@_cdecl` registration (`WireletObservable_<Class>_<Member>`)" — but JNI's auto-resolution only finds `Java_<package_with_underscores>_<class>_<method>` symbols, not the flat `@_cdecl` names. The first instrumented run on a real device crashed with:
+
+    UnsatisfiedLinkError: No implementation found for long ...TodoListVMViewModel.nativeNew() (tried Java_..._nativeNew and Java_..._nativeNew__) - is the library loaded, e.g. System.loadLibrary?
+
+The fix is a `JNI_OnLoad` function in the `.so` that calls `RegisterNatives` to wire each Kotlin `external fun nativeXxx` to its `@_cdecl` symbol. Was hand-written for the example first (`e68a11e`), then auto-generated by the build tool plugin via a sidecar JSON config (`.wirelet-observable-jni.json` written by the Wirelet Gradle plugin, read by the SwiftPM plugin). The hand-written file was deleted in `42bb63e`.
+
+### `(JNIEnv*, jobject_or_jclass, args...)` calling convention
+
+The second instrumented run crashed in `NewGlobalRef` with "invalid jobject". Root cause: JNI invokes `RegisterNatives`-bound functions with the standard C ABI `(JNIEnv*, jobject_or_jclass, args...)` — the second pointer is the instance ref for instance methods or the class ref for static methods. Our bridges accepted only `(env, args...)`, missing the `jobject_or_jclass` slot. Every subsequent arg was off by one:
+
+- `self_ptr` received the `jobject`/`jclass` pointer (a huge address)
+- `on_change` received the (now-corrupted) `jlong self`
+- the actual `Runnable` was discarded
+
+Fixed by inserting `_ this_or_class: jobject?` as the second parameter in every renderer template (`f0d5f27`).
+
+### Phase 3 plugin Android source-set wiring
+
+The Phase 3 plugin only wired generated code into `SourceSetContainer` (Kotlin/JVM). Android projects do not expose `SourceSetContainer`; their Kotlin source sets come from AGP's Variant API. Followed up by adding `wireObservableOutputIntoAndroidVariants` / `wireCodecsOutputIntoAndroidVariants` helpers that call `variant.sources.kotlin?.addGeneratedSourceDirectory(task, prop)`. Subtle: AGP 8.x `compileKotlinAndroid` reads from the *Java* source dirs for generated Kotlin, not the Kotlin slot — the registration has to happen on both `sources.kotlin` AND `sources.java`. Without the Java side, Kotlin compile silently ignores the generated dir.
+
+Required `compileOnly("com.android.tools.build:gradle-api:8.7.0")` on the gradle-plugin and `google()` repository in `kotlin/settings.gradle.kts`. The example's manual `srcDirs(...)` workaround was removed in the same commit (`de1d120`).
+
+### Sidecar config flow for auto-generated JNI_OnLoad
+
+The "auto-generate JNI_OnLoad" follow-up needed a way to flow the Kotlin ViewModel FQN from the Wirelet Gradle plugin (which knows the package via DSL config) to the SwiftPM build tool plugin (which produces the Swift bridges). Chosen design: a sidecar `.wirelet-observable-jni.json` file written into the Swift schema directory by `emit-wirelet-observable --jni-sidecar <path>` (the Kotlin emitter CLI), then read by `emit-wirelet-observable-swift-bridges --jni-config <path>` (the Swift bridges CLI). Both Gradle task `outputs` (the sidecar) and Swift plugin `inputs` are correctly tracked.
+
+To avoid an implicit-dependency loop where the codec task scans the same `schema/` directory and notices the sidecar JSON as an input, both `GenerateWireletObservableViewModels` and `GenerateWireletCodecs` declare `schemaPaths` as `@Internal` and expose a `swiftSourceFiles` FileTree filtered to `.swift`-only as the tracked `@InputFiles`.
+
+Landed as `b1e66a2` / `345d083` / `42bb63e`.
+
+### What didn't change
+
+The original plan's task structure (21 tasks across A-H) was followed; the deviations above were all bug fixes or follow-ups, not scope changes. The fixture format chose `.bin`/`.json` pair (per user direction) instead of the `.txt` script form initially mentioned in the Phase 3 doc. The CI emulator job was added but not run in the lifetime of this plan — first green is part of the Phase 5 work.
