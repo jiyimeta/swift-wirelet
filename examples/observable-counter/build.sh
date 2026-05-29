@@ -25,7 +25,7 @@ ANDROID_NDK_ROOT="${ANDROID_NDK_ROOT:-$HOME/Library/Android/sdk/ndk}"
 echo "=== publishToMavenLocal ==="
 "$ROOT/kotlin/gradlew" \
   -p "$ROOT/kotlin" \
-  -PwireletVersion=0.0.1-local \
+  -PwireletVersion=0.2.0-SNAPSHOT \
   :runtime:publishToMavenLocal \
   :observable-runtime:publishToMavenLocal \
   :gradle-plugin:publishToMavenLocal

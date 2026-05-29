@@ -66,8 +66,8 @@ wirelet {
 }
 
 dependencies {
-    implementation("io.github.jiyimeta:wirelet-runtime:0.0.1-local")
-    implementation("io.github.jiyimeta:wirelet-observable-runtime:0.0.1-local")
+    implementation("io.github.jiyimeta:wirelet-runtime:0.2.0-SNAPSHOT")
+    implementation("io.github.jiyimeta:wirelet-observable-runtime:0.2.0-SNAPSHOT")
 
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
