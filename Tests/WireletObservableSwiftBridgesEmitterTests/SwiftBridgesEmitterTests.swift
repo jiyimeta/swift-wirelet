@@ -355,6 +355,33 @@ struct SwiftBridgesEmitterTests {
         #expect(!content.contains(#"WireletObservable_ReadonlyVM_value_set"#))
     }
 
+    // MARK: - Multi-arg invoke bridge
+
+    @Test func multiArgInvokeBridge() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func setDone(_ id: Int32, _ done: Bool) {}
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+
+        #expect(bridges.contains("@_cdecl(\"WireletObservable_Demo_setDone_invoke\")"))
+        #expect(bridges.contains("public func __Demo_setDone_invoke_jni("))
+        #expect(bridges.contains("_ arg0: jint"))
+        #expect(bridges.contains("_ arg1: jboolean"))
+        #expect(bridges.contains("let decoded0 = Int32(arg0)"))
+        #expect(bridges.contains("let decoded1 = (arg1 != 0)"))
+        #expect(bridges.contains("me.setDone(decoded0, decoded1)"))
+    }
+
     // MARK: - Global function names are class-prefixed (no collision risk)
 
     @Test func globalFunctionNamesArePrefixedWithClassName() throws {
