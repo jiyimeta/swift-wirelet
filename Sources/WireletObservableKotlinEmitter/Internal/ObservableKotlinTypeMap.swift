@@ -23,8 +23,8 @@ enum ObservableKotlinTypeMap {
         /// `WireletList.decode($1, TodoItemCodec::decodePayload)`.
         let decodeTemplate: String
         /// Expression that encodes the new StateFlow value before passing
-        /// it to `nativeXxxSet`. `$1` is the Kotlin value. E.g.
-        /// `TodoItemCodec.encode($1)`.
+        /// it to `nativeXxxSet`. `$1` is the Kotlin value. E.g. for
+        /// `[TodoItem]` → `WireletList.encode($1, TodoItemCodec::encodePayload)`.
         let encodeTemplate: String?
         /// Imports the per-property render path adds. Joined with the
         /// view-model's overall import set and deduped at file render.
