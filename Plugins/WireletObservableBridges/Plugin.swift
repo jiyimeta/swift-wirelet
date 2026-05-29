@@ -49,11 +49,19 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
             "--source", sourceTarget.directory.string,
             "--output", outputDirURL.path(percentEncoded: false),
         ]
+        var inputFiles = swiftFiles.map(\.url)
         if FileManager.default.fileExists(atPath: sidecarPath) {
             arguments += ["--jni-config", sidecarPath]
             outputFiles.append(
                 outputDirURL.appending(path: "__WireletObservableJNI_OnLoad.swift")
             )
+            // Track the sidecar as a build-command input so SwiftPM invalidates
+            // the cached output when the Wirelet Gradle plugin rewrites it.
+            // Without this, adding a new @WireletExpose method on the Swift
+            // side AFTER the first cross-build leaves the old JNI_OnLoad in
+            // place — the new method is never registered with JNI and calls
+            // crash with UnsatisfiedLinkError.
+            inputFiles.append(URL(fileURLWithPath: sidecarPath))
         }
 
         return [
@@ -61,7 +69,7 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
                 displayName: "Generating WireletObservable JNI bridges for \(target.name)",
                 executable: cli.url,
                 arguments: arguments,
-                inputFiles: swiftFiles.map(\.url),
+                inputFiles: inputFiles,
                 outputFiles: outputFiles
             ),
         ]
