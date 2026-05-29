@@ -1,0 +1,7 @@
+{
+  "viewModelPackage": "io.github.jiyimeta.observablecounter.generated",
+  "modelPackage": "io.github.jiyimeta.observablecounter",
+  "codecPackage": "io.github.jiyimeta.observablecounter.codecs",
+  "libraryName": "ObservableCounterJNI",
+  "nameTransform": { "stripSuffix": "VM" }
+}
