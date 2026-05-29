@@ -20,7 +20,7 @@ enum ObservableKotlinTypeMap {
         /// Expression that turns the value returned by `nativeXxxTrack(...)`
         /// into the StateFlow value. `$1` is replaced with the call
         /// expression. E.g. for `[TodoItem]` →
-        /// `WireletList.decode($1, TodoItemCodec)`.
+        /// `WireletList.decode($1, TodoItemCodec::decodePayload)`.
         let decodeTemplate: String
         /// Expression that encodes the new StateFlow value before passing
         /// it to `nativeXxxSet`. `$1` is the Kotlin value. E.g.
