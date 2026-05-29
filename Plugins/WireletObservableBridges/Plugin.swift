@@ -8,6 +8,11 @@ import PackagePlugin
 /// be built from source. Output file names are pre-computed by scanning source
 /// files for `@WireletObservable` class declarations — one output file per
 /// matching class (`<ClassName>+JNIBridges.swift`).
+///
+/// When a `.wirelet-observable-jni.json` sidecar is present in the target's
+/// source directory (written there by the Wirelet Gradle plugin's
+/// `GenerateWireletObservableViewModels` task), the plugin passes it via
+/// `--jni-config` so the CLI can append a consolidated `JNI_OnLoad` file.
 @main
 struct WireletObservableBridgesPlugin: BuildToolPlugin {
     func createBuildCommands(
@@ -31,17 +36,31 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
             }
             classNames.append(contentsOf: extractObservableClassNames(from: source))
         }
-        let outputFiles = classNames.map { name in
+        var outputFiles = classNames.map { name in
             outputDirURL.appending(path: "\(name)+JNIBridges.swift")
         }
+
+        // Check for a JNI registration sidecar adjacent to source files.
+        // The Wirelet Gradle plugin writes this file when it generates
+        // view-model Kotlin — its presence signals that a JNI_OnLoad is
+        // needed to register native methods at library load time.
+        let sidecarPath = sourceTarget.directory.string + "/.wirelet-observable-jni.json"
+        var arguments: [String] = [
+            "--source", sourceTarget.directory.string,
+            "--output", outputDirURL.path(percentEncoded: false),
+        ]
+        if FileManager.default.fileExists(atPath: sidecarPath) {
+            arguments += ["--jni-config", sidecarPath]
+            outputFiles.append(
+                outputDirURL.appending(path: "__WireletObservableJNI_OnLoad.swift")
+            )
+        }
+
         return [
             .buildCommand(
                 displayName: "Generating WireletObservable JNI bridges for \(target.name)",
                 executable: cli.url,
-                arguments: [
-                    "--source", sourceTarget.directory.string,
-                    "--output", outputDirURL.path(percentEncoded: false),
-                ],
+                arguments: arguments,
                 inputFiles: swiftFiles.map(\.url),
                 outputFiles: outputFiles
             ),

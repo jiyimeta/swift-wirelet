@@ -14,12 +14,22 @@ public struct SwiftBridgesEmitter {
     public init() {}
 
     /// Scans each URL for `@WireletObservable` classes and returns one
-    /// `(name, content)` pair per discovered class.
+    /// `(name, content)` pair per discovered class, plus an optional
+    /// `JNI_OnLoad` file when `jniConfig` is provided.
     ///
-    /// - Parameter sources: `.swift` files to parse.
+    /// - Parameters:
+    ///   - sources: `.swift` files to parse.
+    ///   - jniConfig: Optional JNI registration config read from a
+    ///     `.wirelet-observable-jni.json` sidecar. When present, an extra
+    ///     `__WireletObservableJNI_OnLoad.swift` file is appended to the
+    ///     returned array consolidating all `RegisterNatives` calls.
     /// - Returns: Array of `(suggestedFileName, fileContent)` pairs.
-    ///   Suggested file name is `<ClassName>+JNIBridges.swift`.
-    public func emit(sources: [URL]) throws -> [(name: String, content: String)] {
+    ///   Suggested file name is `<ClassName>+JNIBridges.swift` for bridge
+    ///   files and `__WireletObservableJNI_OnLoad.swift` for the JNI_OnLoad.
+    public func emit(
+        sources: [URL],
+        jniConfig: JNIRegistrationConfig? = nil
+    ) throws -> [(name: String, content: String)] {
         var results: [(name: String, content: String)] = []
         for url in sources {
             guard url.pathExtension == "swift" else { continue }
@@ -29,6 +39,10 @@ public struct SwiftBridgesEmitter {
                 let content = renderFile(for: viewModel)
                 results.append((name: "\(viewModel.name)+JNIBridges.swift", content: content))
             }
+        }
+        if let config = jniConfig, !config.viewModels.isEmpty {
+            let jniContent = JNIOnLoadEmitter.renderFile(viewModels: config.viewModels)
+            results.append((name: "__WireletObservableJNI_OnLoad.swift", content: jniContent))
         }
         return results
     }

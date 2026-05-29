@@ -6,23 +6,28 @@ import WireletObservableSwiftBridgesEmitter
 struct CLIArguments {
     var sourceDir: String
     var outputDir: String
+    /// Optional path to the `.wirelet-observable-jni.json` sidecar file.
+    /// When present, the emitter appends a consolidated `JNI_OnLoad` file.
+    var jniConfigPath: String?
 
     static func parse(_ argv: [String]) -> CLIArguments? {
         var source: String?
         var output: String?
+        var jniConfig: String?
         var i = 1
         while i < argv.count {
             let key = argv[i]
             switch key {
             case "--source": source = argv[safe: i + 1]; i += 2
             case "--output": output = argv[safe: i + 1]; i += 2
+            case "--jni-config": jniConfig = argv[safe: i + 1]; i += 2
             default:
                 writeStderr("Unknown argument: \(key)\n")
                 return nil
             }
         }
         guard let s = source, let o = output else { return nil }
-        return CLIArguments(sourceDir: s, outputDir: o)
+        return CLIArguments(sourceDir: s, outputDir: o, jniConfigPath: jniConfig)
     }
 }
 
@@ -39,7 +44,7 @@ private func writeStderr(_ s: String) {
 // MARK: - Entry point
 
 guard let args = CLIArguments.parse(CommandLine.arguments) else {
-    writeStderr("usage: emit-wirelet-observable-swift-bridges --source <dir> --output <dir>\n")
+    writeStderr("usage: emit-wirelet-observable-swift-bridges --source <dir> --output <dir> [--jni-config <file>]\n")
     exit(2)
 }
 
@@ -58,8 +63,16 @@ if let enumerator = FileManager.default.enumerator(
     }
 }
 
+// Load optional JNI registration sidecar.
+var jniConfig: JNIRegistrationConfig?
+if let jniConfigPath = args.jniConfigPath {
+    let jniConfigURL = URL(fileURLWithPath: jniConfigPath)
+    let jniData = try Data(contentsOf: jniConfigURL)
+    jniConfig = try JSONDecoder().decode(JNIRegistrationConfig.self, from: jniData)
+}
+
 let emitter = SwiftBridgesEmitter()
-let outputs = try emitter.emit(sources: swiftFiles)
+let outputs = try emitter.emit(sources: swiftFiles, jniConfig: jniConfig)
 
 try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
 
