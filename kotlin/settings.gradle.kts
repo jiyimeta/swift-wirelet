@@ -7,6 +7,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
+        google()        // AGP artifacts (gradle-api 8.7.x)
         mavenCentral()
     }
 }

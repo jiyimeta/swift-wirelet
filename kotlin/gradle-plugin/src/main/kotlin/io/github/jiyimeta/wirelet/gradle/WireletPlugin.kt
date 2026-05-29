@@ -1,8 +1,11 @@
 package io.github.jiyimeta.wirelet.gradle
 
+import com.android.build.api.variant.AndroidComponentsExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.Directory
 import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 
@@ -47,13 +50,12 @@ class WireletPlugin : Plugin<Project> {
         project.plugins.withId("org.jetbrains.kotlin.jvm") {
             wireOutputIntoKotlinSourceSet(project, entry.name, task)
         }
-        // Same wiring for Android Gradle plugin consumers — they register
-        // their Kotlin source sets through the Android extension, which the
-        // Kotlin JVM plugin id won't necessarily resolve, so also listen for
-        // the Kotlin Android plugin id.
-        project.plugins.withId("org.jetbrains.kotlin.android") {
-            wireOutputIntoKotlinSourceSet(project, entry.name, task)
-        }
+        // Android consumers don't expose `SourceSetContainer`; their Kotlin
+        // source sets come from AGP's Variant API. Register the generated
+        // directory via AGP's task-aware API so it's wired with proper
+        // task dependencies. Listens for both application + library
+        // Android Components extensions.
+        wireObservableOutputIntoAndroidVariants(project, entry.name, task)
     }
 
     private fun wireOutputIntoKotlinSourceSet(
@@ -115,6 +117,71 @@ class WireletPlugin : Plugin<Project> {
             }
             project.tasks.matching { it.name == compileTaskName }
                 .configureEach { dependsOn(task) }
+        }
+        wireCodecsOutputIntoAndroidVariants(project, entry.name, task)
+    }
+
+    /**
+     * Wire the `outputDir` of an observable view-model generation task
+     * into every Android variant's Kotlin source set. AGP's task-aware
+     * `addGeneratedSourceDirectory(task, prop)` registers the task as the
+     * producer of the directory, so AGP carries the dependency through
+     * itself — no manual `dependsOn` and no early `.get()` on the property.
+     */
+    private fun wireObservableOutputIntoAndroidVariants(
+        project: Project,
+        sourceSetName: String,
+        task: TaskProvider<GenerateWireletObservableViewModels>,
+    ) {
+        listOf("com.android.application", "com.android.library").forEach { pluginId ->
+            project.plugins.withId(pluginId) {
+                val ext = project.extensions.findByType(
+                    AndroidComponentsExtension::class.java,
+                ) ?: return@withId
+                ext.onVariants { variant ->
+                    if (sourceSetName != "main") return@onVariants
+                    // Register the generated dir on BOTH the Kotlin and
+                    // Java source-dir sets. AGP exposes the Kotlin slot
+                    // (since 7.4) but `compileKotlinAndroid` on AGP 8.x
+                    // primarily reads from the Java source dirs for
+                    // generated Kotlin too; without `.java?.add(...)` the
+                    // Kotlin compile doesn't pick up our outputs.
+                    variant.sources.kotlin?.addGeneratedSourceDirectory(
+                        task,
+                        GenerateWireletObservableViewModels::outputDir,
+                    )
+                    variant.sources.java?.addGeneratedSourceDirectory(
+                        task,
+                        GenerateWireletObservableViewModels::outputDir,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Same shape as the observable wiring above but for codec tasks. */
+    private fun wireCodecsOutputIntoAndroidVariants(
+        project: Project,
+        sourceSetName: String,
+        task: TaskProvider<GenerateWireletCodecs>,
+    ) {
+        listOf("com.android.application", "com.android.library").forEach { pluginId ->
+            project.plugins.withId(pluginId) {
+                val ext = project.extensions.findByType(
+                    AndroidComponentsExtension::class.java,
+                ) ?: return@withId
+                ext.onVariants { variant ->
+                    if (sourceSetName != "main") return@onVariants
+                    variant.sources.kotlin?.addGeneratedSourceDirectory(
+                        task,
+                        GenerateWireletCodecs::outputDir,
+                    )
+                    variant.sources.java?.addGeneratedSourceDirectory(
+                        task,
+                        GenerateWireletCodecs::outputDir,
+                    )
+                }
+            }
         }
     }
 }
