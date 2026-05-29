@@ -46,6 +46,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: \(jniType)
         ) {
@@ -63,6 +64,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: jstring?
         ) {
@@ -85,6 +87,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: jbyteArray?
         ) {
@@ -106,6 +109,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: jbyteArray?
         ) {
@@ -137,6 +141,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: jbyteArray?
         ) {
@@ -160,6 +165,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: jstring?
         ) {
@@ -185,6 +191,7 @@ enum SetterBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ new_value: jbyteArray?
         ) {

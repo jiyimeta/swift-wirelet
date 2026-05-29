@@ -34,6 +34,7 @@ enum InvokeBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(methodName)_invoke")
         public func __\(className)_\(methodName)_invoke_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong
         ) {
             let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
@@ -54,6 +55,7 @@ enum InvokeBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(methodName)_invoke")
         public func __\(className)_\(methodName)_invoke_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ arg0: jbyteArray?
         ) {

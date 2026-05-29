@@ -38,6 +38,7 @@ enum TrackBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ on_change: jobject?
         ) -> \(jniType) {
@@ -59,6 +60,7 @@ enum TrackBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ on_change: jobject?
         ) -> jstring? {
@@ -83,6 +85,7 @@ enum TrackBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ on_change: jobject?
         ) -> jbyteArray? {
@@ -107,6 +110,7 @@ enum TrackBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ on_change: jobject?
         ) -> jbyteArray? {
@@ -131,6 +135,7 @@ enum TrackBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ on_change: jobject?
         ) -> jbyteArray? {
@@ -158,6 +163,7 @@ enum TrackBridgeEmitter {
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
+            _ this_or_class: jobject?,
             _ self_ptr: jlong,
             _ on_change: jobject?
         ) -> jstring? {
