@@ -23,12 +23,17 @@ class CounterViewModel internal constructor(
             }
         })
 
+    fun updateCount(value: Int) {
+        nativeCountSet(nativePtr, value)
+    }
+
     override fun onCleared() {
         nativeRelease(nativePtr)
         super.onCleared()
     }
 
     private external fun nativeCountTrack(self: Long, onChange: Runnable): Int
+    private external fun nativeCountSet(self: Long, value: Int)
     private external fun nativeRelease(self: Long)
 
     companion object {
