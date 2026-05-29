@@ -79,6 +79,8 @@ if let enumerator = FileManager.default.enumerator(
     }
 }
 
+aggregateSchema.viewModels.sort(by: { $0.name < $1.name })
+
 let emitter = ObservableKotlinEmitter(config: config)
 let allFiles = emitter.emit(schema: aggregateSchema)
 
