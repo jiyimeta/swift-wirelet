@@ -1666,6 +1666,20 @@ To avoid an implicit-dependency loop where the codec task scans the same `schema
 
 Landed as `b1e66a2` / `345d083` / `42bb63e`.
 
+### Multi-arg `@WireletExpose` method support (post-Phase 4 follow-up)
+
+The Phase 1 restriction "zero-arg OR single `@WireFormat` arg" was lifted.
+`@WireletExpose` now accepts any number of arguments mixing primitive,
+`String`, `@WireFormat`, `Optional`, and `Array` types. Each arg crosses
+JNI in its natural form (primitives as native `jint`/`jboolean`/…, strings
+as `jstring?`, wire-format types as `jbyteArray?`). No hidden wrapper
+struct; Kotlin allocates only when an arg's wire format requires it
+(byte arrays for `@WireFormat`/`Optional`/`Array`).
+
+See `docs/superpowers/plans/2026-05-29-wirelet-observable-multi-arg-methods.md`
+for the implementation plan. The example app's checkbox toggle exercises
+this via `setDone(_ id: Int32, _ done: Bool)`.
+
 ### What didn't change
 
 The original plan's task structure (21 tasks across A-H) was followed; the deviations above were all bug fixes or follow-ups, not scope changes. The fixture format chose `.bin`/`.json` pair (per user direction) instead of the `.txt` script form initially mentioned in the Phase 3 doc. The CI emulator job was added but not run in the lifetime of this plan — first green is part of the Phase 5 work.

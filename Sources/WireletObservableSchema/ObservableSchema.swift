@@ -91,10 +91,10 @@ public enum ObservablePropertyKind: Equatable, Sendable {
 
 public struct ObservableMethod: Equatable, Sendable {
     public var name: String
-    /// At v0.1 we support exactly two shapes: zero parameters, or one
-    /// parameter whose type is a `@WireFormat` user type. Both forms are
-    /// recorded as the parameter list as it appears in source — the
-    /// emitter validates the shape.
+    /// Parameter list as it appears in source. Any number of parameters
+    /// is accepted; the bridge emitters validate the per-parameter types
+    /// via `InvokeArgClassifier`. Unrepresentable types surface as a
+    /// compile error in the generated bridge.
     public var parameters: [ObservableMethodParameter]
     public init(name: String, parameters: [ObservableMethodParameter]) {
         self.name = name
