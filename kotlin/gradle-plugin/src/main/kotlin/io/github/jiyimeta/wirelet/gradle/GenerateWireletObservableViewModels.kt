@@ -5,13 +5,16 @@ import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileTree
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -25,6 +28,12 @@ import javax.inject.Inject
  * <swiftPackagePath> emit-wirelet-observable --config <json> --source <dir>
  * --output <outputDir>`. Honours `--include-package` filters via the CLI.
  *
+ * When [jniSidecarFile] is set the task also passes `--jni-sidecar <path>`
+ * to the CLI, which writes a `.wirelet-observable-jni.json` file describing
+ * every native method that the generated Kotlin class declares. The
+ * `WireletObservableBridges` SwiftPM build tool plugin reads this sidecar
+ * to auto-generate the `JNI_OnLoad` registration.
+ *
  * Marked `@CacheableTask`: outputs are pure functions of inputs (schema
  * sources + CLI source files + config inputs) so build cache works.
  */
@@ -33,9 +42,26 @@ abstract class GenerateWireletObservableViewModels @Inject constructor(
     private val execOperations: ExecOperations,
 ) : DefaultTask() {
 
+    /**
+     * The schema source directories. Declared `@Internal` because tracking
+     * the full directory would pick up non-Swift sidecar files (e.g.
+     * `.wirelet-observable-jni.json`) written by this same task. The
+     * effective Gradle input is [swiftSourceFiles], which filters to
+     * `.swift` files only.
+     */
+    @get:Internal
+    abstract val schemaPaths: ConfigurableFileCollection
+
+    /**
+     * Swift source files derived from [schemaPaths], filtered to `.swift`
+     * only. This is the tracked `@InputFiles` for UP-TO-DATE and build-cache
+     * purposes, ensuring the JSON sidecar this task writes to the same
+     * directory does not trigger spurious re-runs on subsequent builds.
+     */
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val schemaPaths: ConfigurableFileCollection
+    val swiftSourceFiles: FileTree
+        get() = schemaPaths.asFileTree.matching { include("**/*.swift") }
 
     /**
      * Filesystem location of the wirelet Swift package — used at exec time
@@ -63,6 +89,30 @@ abstract class GenerateWireletObservableViewModels @Inject constructor(
     @get:Input abstract val includePackages: SetProperty<String>
 
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    /**
+     * When set, the task writes a `.wirelet-observable-jni.json` sidecar at
+     * this path. The `WireletObservableBridges` SwiftPM build tool plugin
+     * looks for this file in the Swift target's source directory and passes
+     * it to the Swift bridges emitter CLI so it can emit a `JNI_OnLoad`.
+     *
+     * Conventionally set to `<schemaDir>/.wirelet-observable-jni.json`
+     * by the plugin wiring in [WireletPlugin]. Declared `@OutputFile` so
+     * Gradle tracks it for UP-TO-DATE checking and build caching.
+     *
+     * The sidecar is co-located with the Swift schema sources intentionally:
+     * the `WireletObservableBridges` SwiftPM build tool plugin can only
+     * inspect the target's `sourceTarget.directory`, and the sidecar must
+     * be findable at a predictable path within that tree.
+     *
+     * To prevent the sidecar from being counted as an input by sibling tasks
+     * that also scan the same schema directory, both [GenerateWireletCodecs]
+     * and this task use [swiftSourceFiles] (`.swift`-only `FileTree`) as
+     * their tracked `@InputFiles` rather than the raw [schemaPaths].
+     */
+    @get:OutputFile
+    @get:Optional
+    abstract val jniSidecarFile: RegularFileProperty
 
     @TaskAction
     fun generate() {
@@ -94,6 +144,11 @@ abstract class GenerateWireletObservableViewModels @Inject constructor(
         for (pkg in includePackages.get()) {
             args += "--include-package"
             args += pkg
+        }
+        jniSidecarFile.orNull?.asFile?.let { sidecar ->
+            sidecar.parentFile.mkdirs()
+            args += "--jni-sidecar"
+            args += sidecar.absolutePath
         }
 
         execOperations.exec {

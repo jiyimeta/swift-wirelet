@@ -45,6 +45,26 @@ class WireletPlugin : Plugin<Project> {
                     "generated/wirelet/observable/${entry.name}/kotlin",
                 ),
             )
+            // Wire the JNI sidecar file into the schema source directory so
+            // the WireletObservableBridges SwiftPM plugin can find it adjacent
+            // to the Swift schema sources and trigger JNI_OnLoad generation.
+            //
+            // The sidecar is a separate @OutputFile; sibling tasks that scan
+            // the same schema directory won't see it as an input because both
+            // GenerateWireletCodecs and this task use swiftSourceFiles
+            // (filtered to .swift only) as their tracked @InputFiles.
+            jniSidecarFile.set(
+                entry.schemaPaths.elements.map { elements ->
+                    val schemaFile = elements.singleOrNull()?.asFile
+                    if (schemaFile != null) {
+                        project.layout.projectDirectory.file(
+                            schemaFile.resolve(".wirelet-observable-jni.json").absolutePath
+                        )
+                    } else {
+                        null
+                    }
+                }
+            )
         }
 
         project.plugins.withId("org.jetbrains.kotlin.jvm") {

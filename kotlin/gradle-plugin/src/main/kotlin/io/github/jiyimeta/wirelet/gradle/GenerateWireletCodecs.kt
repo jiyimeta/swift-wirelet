@@ -33,9 +33,25 @@ abstract class GenerateWireletCodecs @Inject constructor(
     private val execOperations: ExecOperations,
 ) : DefaultTask() {
 
+    /**
+     * The schema source directories. Declared `@Internal` because tracking
+     * the full directory would pick up non-Swift sidecar files (e.g.
+     * `.wirelet-observable-jni.json`) written by other tasks. The effective
+     * Gradle input is [swiftSourceFiles], which filters to `.swift` files.
+     */
+    @get:Internal
+    abstract val schemaPaths: ConfigurableFileCollection
+
+    /**
+     * Swift source files derived from [schemaPaths], filtered to `.swift`
+     * only. This is the tracked `@InputFiles` for UP-TO-DATE and build-cache
+     * purposes, ensuring JSON sidecars co-located with the Swift sources do
+     * not trigger spurious re-runs.
+     */
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val schemaPaths: ConfigurableFileCollection
+    val swiftSourceFiles: FileTree
+        get() = schemaPaths.asFileTree.matching { include("**/*.swift") }
 
     /**
      * Filesystem location of the wirelet Swift package — used at exec time

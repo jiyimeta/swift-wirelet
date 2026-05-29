@@ -12,11 +12,17 @@ struct CLIArguments {
     /// path. Multi-module Gradle builds use this to assign disjoint
     /// view-model packages to disjoint modules from one schema source.
     var includePackages: Set<String>
+    /// Optional path for the `.wirelet-observable-jni.json` sidecar. When
+    /// present, `emit-wirelet-observable` writes JNI registration metadata
+    /// alongside the Kotlin output so the `WireletObservableBridges` SwiftPM
+    /// build tool plugin can emit a matching `JNI_OnLoad`.
+    var jniSidecarPath: String?
 
     static func parse(_ argv: [String]) -> CLIArguments? {
         var config: String?
         var source: String?
         var output: String?
+        var jniSidecar: String?
         var includePackages = Set<String>()
         var i = 1
         while i < argv.count {
@@ -25,6 +31,7 @@ struct CLIArguments {
             case "--config": config = argv[safe: i + 1]; i += 2
             case "--source": source = argv[safe: i + 1]; i += 2
             case "--output": output = argv[safe: i + 1]; i += 2
+            case "--jni-sidecar": jniSidecar = argv[safe: i + 1]; i += 2
             case "--include-package":
                 if let pkg = argv[safe: i + 1] { includePackages.insert(pkg) }
                 i += 2
@@ -38,7 +45,8 @@ struct CLIArguments {
             configPath: c,
             sourceDir: s,
             outputDir: o,
-            includePackages: includePackages
+            includePackages: includePackages,
+            jniSidecarPath: jniSidecar
         )
     }
 }
@@ -56,7 +64,7 @@ private func writeStderr(_ s: String) {
 guard let args = CLIArguments.parse(CommandLine.arguments) else {
     writeStderr("""
     usage: emit-wirelet-observable --config <file> --source <dir> --output <dir> \
-    [--include-package <name>]...
+    [--include-package <name>]... [--jni-sidecar <file>]
     """)
     exit(2)
 }
@@ -115,5 +123,19 @@ if let sweep = FileManager.default.enumerator(at: outputURL, includingProperties
         let resolved = url.resolvingSymlinksInPath().path
         guard url.pathExtension == "kt", !generatedPaths.contains(resolved) else { continue }
         try? FileManager.default.removeItem(at: url)
+    }
+}
+
+// Write the JNI registration sidecar if requested.
+if let sidecarPath = args.jniSidecarPath {
+    let sidecar = JNISidecarBuilder.build(schema: aggregateSchema, config: config)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    let sidecarData = try encoder.encode(sidecar)
+    let sidecarURL = URL(fileURLWithPath: sidecarPath)
+    if let existing = try? Data(contentsOf: sidecarURL), existing == sidecarData {
+        // Idempotent — skip rewrite.
+    } else {
+        try sidecarData.write(to: sidecarURL)
     }
 }
