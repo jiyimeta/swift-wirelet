@@ -117,6 +117,29 @@ wire-stable extension; see
 [schema-evolution.md](schema-evolution.md) for the full table of
 allowed changes.
 
+## Observable bridge
+
+For exposing a live `@Observable` Swift class to Kotlin as an Android
+`ViewModel` with `StateFlow<T>` properties, pair `@WireletObservable`
+with `@Observable`:
+
+```swift
+@WireletObservable
+@Observable
+public final class CounterVM {
+    public var count: Int32 = 0
+    @WireletExpose public func increment() { count += 1 }
+}
+```
+
+`@WireletObservable` is a marker; the `WireletObservableBridges` SwiftPM
+build tool plugin scans for it at build time and emits the `@_cdecl`
+JNI bridges into a separate generated `.swift` file under
+`#if os(Android)`. Apple builds compile to nothing observable; the
+cross-build for `aarch64-unknown-linux-android` produces the `.so` with
+the bridges exported. The full end-to-end example lives at
+[`examples/observable-counter/`](../examples/observable-counter/).
+
 ## Next steps
 
 - [wire-format-spec.md](wire-format-spec.md) — language-neutral binary

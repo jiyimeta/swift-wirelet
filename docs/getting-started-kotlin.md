@@ -157,6 +157,32 @@ GitHub Packages (Phase 4), the easiest local workflow is `./gradlew
 publishToMavenLocal` from the wirelet repo plus `mavenLocal()` in the
 consumer's `pluginManagement` / `repositories` blocks.
 
+## Observable view-models
+
+The `io.github.jiyimeta.wirelet` plugin grows an `observable { ... }`
+block that generates one `<Name>ViewModel.kt` per Swift
+`@WireletObservable` class. Each generated view-model exposes one
+`StateFlow<T>` per Swift stored property and is wired into
+`androidx.lifecycle.ViewModel`:
+
+```kotlin
+wirelet {
+    observable {
+        register("main") {
+            schemaPaths.from(file("../shared-schema/Sources"))
+            viewModelPackage.set("com.example.app.viewmodels")
+            modelPackage.set("com.example.app")
+            codecPackage.set("com.example.app")
+            libraryName.set("MyAppJNI")
+        }
+    }
+}
+```
+
+See [`examples/observable-counter/`](../examples/observable-counter/)
+for a complete Compose app that consumes the generated view-model
+against a Swift `.so` cross-compiled to Android via the Swift Android SDK.
+
 ## Next steps
 
 - [wire-format-spec.md](wire-format-spec.md) — the byte layout your

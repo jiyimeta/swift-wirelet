@@ -98,7 +98,10 @@ The wire format is protobuf-style TLV — see
 | `kotlin/runtime/` | Kotlin `:runtime` module — `io.github.jiyimeta:wirelet-runtime` Maven artifact. |
 | `kotlin/gradle-plugin/` | `io.github.jiyimeta.wirelet` Gradle plugin (wraps the CLI in a typed DSL). |
 | `kotlin/conformance-tests/` | Cross-language fixture suite (Swift writes `.bin`, Kotlin decodes & re-encodes, asserts byte-equal). |
+| `kotlin/observable-runtime/` | Kotlin `:observable-runtime` module — `io.github.jiyimeta:wirelet-observable-runtime` Maven artifact (`WireletList`, `ViewModel` helpers). |
+| `Sources/WireletObservable*` + `Plugins/WireletObservableBridges/` | `@WireletObservable @Observable` Swift class → Kotlin `ViewModel<StateFlow>` bridge — JNI bridges produced by a SwiftPM build tool plugin, view-models by `emit-wirelet-observable`. |
 | `examples/cross-roundtrip/` | End-to-end smoke (Swift encoder → JVM decoder via the runtime). |
+| `examples/observable-counter/` | Observable bridge demo — Swift `@WireletObservable` class cross-compiled to a JNI `.so`, consumed by an Android Compose app via `StateFlow`. See [Phase 4 plan](docs/superpowers/plans/2026-05-29-wirelet-observable-bridge-phase-4.md). |
 | `docs/` | Wire-format spec, schema-evolution rules, language-specific getting-started guides. |
 
 ## Getting started
