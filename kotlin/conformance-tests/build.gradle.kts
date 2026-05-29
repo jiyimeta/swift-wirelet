@@ -19,6 +19,7 @@ java {
 
 dependencies {
     implementation(project(":runtime"))
+    implementation(project(":observable-runtime"))
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }

@@ -15,6 +15,8 @@ import io.github.jiyimeta.wirelet.conformance.serialization.MapHolderCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.OptionalHolderCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.PrimitivesCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.ShapeChoiceCodec
+import io.github.jiyimeta.wirelet.conformance.serialization.TodoItemCodec
+import io.github.jiyimeta.wirelet.observable.WireletList
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -71,6 +73,22 @@ class FixtureRunner {
         val v = MapHolderCodec.decode(bytes)
         assertEquals(mapOf("alpha" to 10, "mango" to 7, "zeta" to -1), v.m)
         assertContentEquals(bytes, MapHolderCodec.encode(v))
+    }
+
+    @Test fun observableBurst() {
+        // Bytes mirror the `examples/observable-counter/` example's
+        // `add ×10` burst: a count-prefixed list of TodoItem TLV payloads.
+        // Locks down WireletList's wire format against the Swift side.
+        val bytes = fixture("observable_burst_v1.bin")
+        val items = WireletList.decode(bytes, TodoItemCodec::decodePayload)
+        assertEquals(10, items.size)
+        items.forEachIndexed { idx, item ->
+            assertEquals(idx + 1, item.id)
+            assertEquals("task #${idx + 1}", item.title)
+            assertEquals(false, item.done)
+        }
+        val reencoded = WireletList.encode(items, TodoItemCodec::encodePayload)
+        assertContentEquals(bytes, reencoded)
     }
 
     @Test fun forwardCompatV2ToV1() {
