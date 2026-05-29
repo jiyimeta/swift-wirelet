@@ -26,4 +26,12 @@ abstract class WireletExtension {
     fun sources(configure: Action<NamedDomainObjectContainer<WireletSourceSet>>) {
         configure.execute(sources)
     }
+
+    /** Generation source sets for `@WireletObservable` view-models. */
+    abstract val observable: NamedDomainObjectContainer<WireletObservableSourceSet>
+
+    /** Configure-by-name shorthand for `observable { ... }`. */
+    fun observable(configure: Action<NamedDomainObjectContainer<WireletObservableSourceSet>>) {
+        configure.execute(observable)
+    }
 }
