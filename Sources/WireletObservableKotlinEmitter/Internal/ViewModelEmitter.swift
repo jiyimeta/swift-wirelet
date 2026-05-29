@@ -177,7 +177,16 @@ enum ViewModelEmitter {
             }
             let codec = config.nameTransform.apply(to: swiftType) + "Codec"
             let kotlinType = config.nameTransform.apply(to: swiftType)
-            let argName = param.label == "_" ? "arg0" : param.label
+            // Spec line 264: surface the Swift internal parameter name (e.g.
+            // `_ item: TodoItem` → `fun add(item:)`) so the Kotlin signature feels
+            // natural to consumers. Fall back to the external label when the parameter
+            // has only one name (e.g. `func add(item:)`), and to `arg0` only as a
+            // safety net.
+            let argName: String = {
+                if param.label != "_" { return param.label }
+                if let internalName = param.internalName { return internalName }
+                return "arg0"
+            }()
             let nativeFn = "native\(capitalised(method.name))"
             let publicFn = """
                 fun \(method.name)(\(argName): \(kotlinType)) =

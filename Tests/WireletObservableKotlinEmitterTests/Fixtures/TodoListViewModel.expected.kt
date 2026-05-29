@@ -72,8 +72,8 @@ class TodoListViewModel internal constructor(
         nativePinnedSet(nativePtr, value?.let { TodoItemCodec.encode(it) })
     }
 
-    fun add(arg0: TodoItem) =
-        nativeAdd(nativePtr, TodoItemCodec.encode(arg0))
+    fun add(item: TodoItem) =
+        nativeAdd(nativePtr, TodoItemCodec.encode(item))
 
     fun clear() = nativeClear(nativePtr)
 

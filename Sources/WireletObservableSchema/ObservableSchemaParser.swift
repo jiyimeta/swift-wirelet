@@ -82,6 +82,7 @@ final class ObservableVisitor: SyntaxVisitor {
             let params = funcDecl.signature.parameterClause.parameters.map { param in
                 ObservableMethodParameter(
                     label: param.firstName.text,
+                    internalName: param.secondName?.text,
                     typeText: param.type.trimmedDescription
                 )
             }

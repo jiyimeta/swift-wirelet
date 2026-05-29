@@ -107,10 +107,15 @@ public struct ObservableMethodParameter: Equatable, Sendable {
     /// — the emitter uses it to decide whether to drop the label when
     /// calling the wrapped function on the Swift side.
     public var label: String
+    /// The second (internal) name as it appears in source, or `nil` when
+    /// the parameter has only one name (e.g. `func add(item: TodoItem)` —
+    /// `item` is the external label *and* internal name).
+    public var internalName: String?
     /// Swift type text as written in source (e.g. `TodoItem`).
     public var typeText: String
-    public init(label: String, typeText: String) {
+    public init(label: String, internalName: String? = nil, typeText: String) {
         self.label = label
+        self.internalName = internalName
         self.typeText = typeText
     }
 }

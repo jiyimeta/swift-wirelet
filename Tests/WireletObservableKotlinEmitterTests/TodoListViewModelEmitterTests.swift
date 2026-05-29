@@ -35,7 +35,7 @@ import WireletObservableSchema
         ],
         methods: [
             ObservableMethod(name: "add", parameters: [
-                ObservableMethodParameter(label: "_", typeText: "TodoItem"),
+                ObservableMethodParameter(label: "_", internalName: "item", typeText: "TodoItem"),
             ]),
             ObservableMethod(name: "clear", parameters: []),
         ]
