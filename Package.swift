@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "Wirelet", targets: ["Wirelet"]),
         .library(name: "WireletObservable", targets: ["WireletObservable"]),
         .executable(name: "emit-wirelet-kotlin", targets: ["EmitWireletKotlin"]),
+        .executable(name: "emit-wirelet-observable", targets: ["EmitWireletObservable"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
@@ -65,6 +66,27 @@ let package = Package(
             name: "EmitWireletKotlin",
             dependencies: ["WireletSchema", "WireletKotlinEmitter"]
         ),
+        .target(
+            name: "WireletObservableSchema",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
+        .target(
+            name: "WireletObservableKotlinEmitter",
+            dependencies: [
+                "WireletObservableSchema",
+                "WireletKotlinEmitter",
+            ]
+        ),
+        .executableTarget(
+            name: "EmitWireletObservable",
+            dependencies: [
+                "WireletObservableSchema",
+                "WireletObservableKotlinEmitter",
+            ]
+        ),
         .testTarget(
             name: "WireletRuntimeTests",
             dependencies: ["Wirelet"]
@@ -107,6 +129,28 @@ let package = Package(
                 "WireletObservable",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ]
+        ),
+        .testTarget(
+            name: "WireletObservableSchemaTests",
+            dependencies: ["WireletObservableSchema"],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "WireletObservableKotlinEmitterTests",
+            dependencies: [
+                "WireletObservableKotlinEmitter",
+                "WireletObservableSchema",
+            ],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "EmitWireletObservableTests",
+            dependencies: [
+                "EmitWireletObservable",
+                "WireletObservableKotlinEmitter",
+                "WireletObservableSchema",
+            ],
+            resources: [.copy("Fixtures")]
         ),
     ]
 )
