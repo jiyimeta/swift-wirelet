@@ -10,19 +10,22 @@ byte-identical encoders and decoders on both sides of the wire for free.
 > external CLI) from a single Swift source-of-truth declaration.
 > Different problem, different mechanism.
 
-**Status (2026-05-27):** pre-alpha, private repo. Phase 0-4 of the
+**Status (2026-05-30):** pre-alpha, private repo. Phase 0-5 of the
 extraction roadmap is shipped — runtime, macros, Kotlin emitter, Gradle
-plugin, and the GitHub Actions publish pipeline are all green. Tags
-`phase-1-complete` through `phase-4-complete` are pinned on `main`;
-`v0.1.0-alpha.1` and `v0.1.0-alpha.2` are published to GitHub Packages.
+plugin, the Observable bridge (`@WireletObservable @Observable` →
+Kotlin `ViewModel<StateFlow>` via JNI), and the GitHub Actions publish
+pipeline are all green. Tags `phase-1-complete` through
+`phase-5-complete` are pinned on `main`; `v0.1.0-alpha.1`,
+`v0.1.0-alpha.2`, and `v0.2.0` are published to GitHub Packages.
 
 Pinned coordinates:
 
 | Surface | Identifier |
 |---|---|
-| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "31be47c84fddf2834b3cccc05ff955dcd1f2668e")` (= `v0.1.0-alpha.2`) |
-| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.1.0-alpha.2` |
-| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.1.0-alpha.2"` |
+| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "<TBD-fill-after-tag>")` (= `v0.2.0`) |
+| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.2.0` |
+| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.2.0` |
+| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.2.0"` |
 
 Reading Maven artifacts requires authenticating against
 `maven.pkg.github.com/jiyimeta/swift-wirelet` with a classic GitHub
