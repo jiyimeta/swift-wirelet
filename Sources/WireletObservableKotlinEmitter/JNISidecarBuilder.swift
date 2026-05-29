@@ -153,27 +153,37 @@ public enum JNISidecarBuilder {
         vmName: String,
         config: ObservableCodegenConfig
     ) -> JNISidecarNativeMethod? {
-        let params = method.parameters
         let nativeName = "native\(capitalised(method.name))"
-        switch params.count {
-        case 0:
-            return JNISidecarNativeMethod(
-                name: nativeName,
-                signature: "(J)V",
-                cdeclSymbol: "WireletObservable_\(vmName)_\(method.name)_invoke"
-            )
-        case 1:
-            let swiftType = params[0].typeText
-            // Primitive and String invoke params are not supported (the macro
-            // and InvokeBridgeEmitter both skip them).
-            if isPrimitive(swiftType) || swiftType == "String" { return nil }
-            return JNISidecarNativeMethod(
-                name: nativeName,
-                signature: "(J[B)V",
-                cdeclSymbol: "WireletObservable_\(vmName)_\(method.name)_invoke"
-            )
-        default:
-            return nil
+        let cdecl = "WireletObservable_\(vmName)_\(method.name)_invoke"
+        let argDescriptors = method.parameters
+            .map { jniArgDescriptor(forArgType: $0.typeText) }
+            .joined()
+        return JNISidecarNativeMethod(
+            name: nativeName,
+            signature: "(J\(argDescriptors))V",
+            cdeclSymbol: cdecl
+        )
+    }
+
+    /// JNI type descriptor for one method-arg type (no `J` self prefix, no return type).
+    private static func jniArgDescriptor(forArgType swiftType: String) -> String {
+        switch InvokeArgClassifier.classify(swiftType) {
+        case .primitive(let jniSwiftType, _):
+            switch jniSwiftType {
+            case "jint":     return "I"
+            case "jlong":    return "J"
+            case "jfloat":   return "F"
+            case "jdouble":  return "D"
+            case "jboolean": return "Z"
+            default: return "[B"
+            }
+        case .bool:                                  return "Z"
+        case .string, .optionalString:               return "Ljava/lang/String;"
+        case .wireFormat,
+             .optionalPrimitive,
+             .optionalWireFormat,
+             .array:
+            return "[B"
         }
     }
 
@@ -205,17 +215,6 @@ public enum JNISidecarBuilder {
                 return "[B"
             }
             return "[B"
-        }
-    }
-
-    private static func isPrimitive(_ typeText: String) -> Bool {
-        switch typeText {
-        case "Int8", "Int16", "Int32", "Int64",
-             "UInt8", "UInt16", "UInt32", "UInt64",
-             "Bool", "Float", "Double":
-            return true
-        default:
-            return false
         }
     }
 
