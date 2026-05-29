@@ -42,7 +42,10 @@ fun TodoScreen(viewModel: TodoListVMViewModel) {
             LazyColumn(modifier = Modifier.testTag("list")) {
                 items(items) { item ->
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Checkbox(checked = item.done, onCheckedChange = null)
+                        Checkbox(
+                            checked = item.done,
+                            onCheckedChange = { newDone -> viewModel.setDone(item.id, newDone) },
+                        )
                         Text(item.title, modifier = Modifier.padding(start = 8.dp))
                     }
                 }

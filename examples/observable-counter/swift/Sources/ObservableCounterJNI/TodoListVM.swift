@@ -32,4 +32,13 @@ public final class TodoListVM {
         items.removeAll()
         totalCount = 0
     }
+
+    @WireletExpose
+    public func setDone(_ id: Int32, _ done: Bool) {
+        items = items.map {
+            $0.id == id
+                ? TodoItem(id: $0.id, title: $0.title, done: done)
+                : $0
+        }
+    }
 }
