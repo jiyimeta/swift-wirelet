@@ -9,7 +9,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.jiyimeta:wirelet-runtime:0.0.1-local")
+    implementation("io.github.jiyimeta:wirelet-runtime:0.2.0-SNAPSHOT")
 }
 
 sourceSets["main"].kotlin.srcDirs("src/main/kotlin", "build/generated/wirelet")

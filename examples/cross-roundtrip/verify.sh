@@ -19,7 +19,7 @@ cd "$SCRIPT_DIR"
 echo "[1/4] Publishing wirelet-runtime to mavenLocal..."
 "$WIRELET_ROOT/kotlin/gradlew" -p "$WIRELET_ROOT/kotlin" \
     :runtime:publishToMavenLocal \
-    -PwireletVersion=0.0.1-local \
+    -PwireletVersion=0.2.0-SNAPSHOT \
     --quiet
 
 # 2. Generate Kotlin codecs from the shared schema.
