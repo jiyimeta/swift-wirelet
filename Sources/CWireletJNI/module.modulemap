@@ -1,0 +1,4 @@
+module CWireletJNI {
+    header "shim.h"
+    export *
+}
