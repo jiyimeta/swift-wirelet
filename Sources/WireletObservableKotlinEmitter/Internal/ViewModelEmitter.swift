@@ -112,10 +112,10 @@ enum ViewModelEmitter {
         let helperName = "read\(capitalised(property.name))WithTracking"
         let nativeFn = nativeTrackFnName(property)
         let nativeCall = "\(nativeFn)(nativePtr, Runnable {\n"
-            + "                viewModelScope.launch(Dispatchers.Main) {\n"
-            + "                    _\(property.name).value = \(helperName)()\n"
-            + "                }\n"
-            + "            })"
+            + "            viewModelScope.launch(Dispatchers.Main) {\n"
+            + "                _\(property.name).value = \(helperName)()\n"
+            + "            }\n"
+            + "        })"
         let decoded = plan.decodeTemplate.replacingOccurrences(of: "$1", with: nativeCall)
         return """
             private fun \(helperName)(): \(plan.kotlinType) =
