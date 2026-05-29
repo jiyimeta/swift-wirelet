@@ -1,5 +1,6 @@
 #if os(Android)
 import CWireletJNI
+import Foundation
 import Wirelet
 
 /// Helpers used by macro-generated `@_cdecl` JNI bridges. Keeping the

@@ -7,9 +7,12 @@ import CWireletJNI
 ///
 /// Holds a JNI global reference; the local reference passed across the
 /// `@_cdecl` boundary would be invalid by the time `onChange` fires.
-public final class JObject {
+public final class JObject: @unchecked Sendable {
+    // JNI global refs and the JavaVM pointer are designed for cross-thread
+    // use via AttachCurrentThread; the wrapper is safe to capture in a
+    // @Sendable closure (the macro-generated onChange callbacks).
     private let vm: UnsafeMutablePointer<JavaVM?>
-    private var globalRef: jobject
+    private let globalRef: jobject
 
     public init?(env: UnsafeMutablePointer<JNIEnv?>?, jobject local: jobject?) {
         guard let env = env, let envValue = env.pointee, let local = local else {
@@ -41,7 +44,10 @@ public final class JObject {
         guard attachResult == JNI_OK, let env, let envValue = env.pointee else { return }
         guard let cls = envValue.pointee.GetObjectClass(env, globalRef) else { return }
         guard let methodID = envValue.pointee.GetMethodID(env, cls, name, "()V") else { return }
-        envValue.pointee.CallVoidMethod(env, globalRef, methodID)
+        // CallVoidMethod is variadic in C; Swift imports it as an
+        // OpaquePointer. Use the `A`-suffixed variant which takes a
+        // jvalue array (nil for zero-arg methods like Runnable.run()).
+        envValue.pointee.CallVoidMethodA(env, globalRef, methodID, nil)
     }
 }
 #endif
