@@ -51,7 +51,7 @@ jobs:
         # functional tests via swift-actions setup above.
         run: ./gradlew check -PwireletVersion=${{ steps.version.outputs.version }}
 
-      - name: Publish wirelet-runtime + wirelet gradle-plugin
+      - name: Publish wirelet-runtime + observable-runtime + wirelet gradle-plugin
         working-directory: kotlin
         env:
           GITHUB_ACTOR: ${{ github.actor }}
@@ -60,6 +60,7 @@ jobs:
           ./gradlew \
             -PwireletVersion=${{ steps.version.outputs.version }} \
             :runtime:publishAllPublicationsToGitHubPackagesRepository \
+            :observable-runtime:publishAllPublicationsToGitHubPackagesRepository \
             :gradle-plugin:publishAllPublicationsToGitHubPackagesRepository
 
       - name: Create GitHub Release
