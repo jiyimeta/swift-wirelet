@@ -480,6 +480,199 @@ final class WireletObservableCompositeExpansionTests: XCTestCase {
     }
 }
 
+// MARK: - Task 13: Golden snapshot — TodoListVM design-doc example
+
+final class WireletObservableGoldenTests: XCTestCase {
+    func testTodoListVMMatchesDesignDoc() {
+        assertMacroExpansion(
+            """
+            @WireletObservable
+            @Observable
+            public final class TodoListVM {
+                public var items: [TodoItem] = []
+                public var filter: String = ""
+                public var totalCount: Int32 = 0
+
+                public init() {}
+
+                @WireletExpose
+                public func add(_ item: TodoItem) {
+                    items.append(item)
+                    totalCount += 1
+                }
+
+                @WireletExpose
+                public func clear() {
+                    items.removeAll()
+                    totalCount = 0
+                }
+            }
+            """,
+            expandedSource: """
+            @Observable
+            public final class TodoListVM {
+                public var items: [TodoItem] = []
+                public var filter: String = ""
+                public var totalCount: Int32 = 0
+
+                public init() {}
+                public func add(_ item: TodoItem) {
+                    items.append(item)
+                    totalCount += 1
+                }
+                public func clear() {
+                    items.removeAll()
+                    totalCount = 0
+                }
+            }
+
+            extension TodoListVM {
+                #if os(Android)
+                @_cdecl("WireletObservable_TodoListVM_items_track")
+                public static func __items_track_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ on_change: jobject?
+                ) -> jbyteArray? {
+                    guard let env else {
+                        return nil
+                    }
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    let runnable = JObject(env: env, jobject: on_change)
+                    let snapshot = ObservationTrackingHelper.read(\\.items, on: me) {
+                        runnable?.call(method: "run")
+                    }
+                    return WireletObservableJNI.encodeArray(snapshot, env: env)
+                }
+                @_cdecl("WireletObservable_TodoListVM_filter_track")
+                public static func __filter_track_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ on_change: jobject?
+                ) -> jstring? {
+                    guard let env, let envValue = env.pointee else {
+                        return nil
+                    }
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    let runnable = JObject(env: env, jobject: on_change)
+                    let snapshot = ObservationTrackingHelper.read(\\.filter, on: me) {
+                        runnable?.call(method: "run")
+                    }
+                    return snapshot.withCString { cstr in
+                        envValue.pointee.NewStringUTF(env, cstr)
+                    }
+                }
+                @_cdecl("WireletObservable_TodoListVM_totalCount_track")
+                public static func __totalCount_track_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ on_change: jobject?
+                ) -> jint {
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    let runnable = JObject(env: env, jobject: on_change)
+                    let snapshot = ObservationTrackingHelper.read(\\.totalCount, on: me) {
+                        runnable?.call(method: "run")
+                    }
+                    return jint(snapshot)
+                }
+                @_cdecl("WireletObservable_TodoListVM_new")
+                public static func __new_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?
+                ) -> jlong {
+                    return WireletObservableJNI.retain(TodoListVM())
+                }
+                @_cdecl("WireletObservable_TodoListVM_release")
+                public static func __release_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong
+                ) {
+                    WireletObservableJNI.release(self_ptr, as: TodoListVM.self)
+                }
+                @_cdecl("WireletObservable_TodoListVM_items_set")
+                public static func __items_set_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ new_value: jbyteArray?
+                ) {
+                    guard let env, let new_value else {
+                        return
+                    }
+                    let data = WireletObservableJNI.dataFromByteArray(new_value, env: env)
+                    var reader = WireFormatReader(data: data)
+                    guard let count = try? reader.readVarint() else {
+                        return
+                    }
+                    var elements: [TodoItem] = []
+                    elements.reserveCapacity(Int(count))
+                    for _ in 0 ..< Int(count) {
+                        guard let element = try? TodoItem(from: &reader) else {
+                            return
+                        }
+                        elements.append(element)
+                    }
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    me.items = elements
+                }
+                @_cdecl("WireletObservable_TodoListVM_filter_set")
+                public static func __filter_set_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ new_value: jstring?
+                ) {
+                    guard let env, let envValue = env.pointee, let new_value else {
+                        return
+                    }
+                    let cstr = envValue.pointee.GetStringUTFChars(env, new_value, nil)
+                    defer {
+                        envValue.pointee.ReleaseStringUTFChars(env, new_value, cstr)
+                    }
+                    guard let cstr else {
+                        return
+                    }
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    me.filter = String(cString: cstr)
+                }
+                @_cdecl("WireletObservable_TodoListVM_totalCount_set")
+                public static func __totalCount_set_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ new_value: jint
+                ) {
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    me.totalCount = Int32(new_value)
+                }
+                @_cdecl("WireletObservable_TodoListVM_add_invoke")
+                public static func __add_invoke_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong,
+                    _ arg0: jbyteArray?
+                ) {
+                    guard let env, let arg0 else {
+                        return
+                    }
+                    let data = WireletObservableJNI.dataFromByteArray(arg0, env: env)
+                    guard let decoded = try? TodoItem(decoding: data) else {
+                        return
+                    }
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    me.add(decoded)
+                }
+                @_cdecl("WireletObservable_TodoListVM_clear_invoke")
+                public static func __clear_invoke_jni(
+                    _ env: UnsafeMutablePointer<JNIEnv?>?,
+                    _ self_ptr: jlong
+                ) {
+                    let me = WireletObservableJNI.unwrap(self_ptr) as TodoListVM
+                    me.clear()
+                }
+                #endif
+            }
+            """,
+            macros: macroSpecs
+        )
+    }
+}
+
 // MARK: - Group J: Constructor, Destructor, Setters, and @WireletExpose Invoke bridges
 
 final class WireletObservableConstructorAndInvokeTests: XCTestCase {
