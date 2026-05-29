@@ -33,7 +33,7 @@ class TodoListViewModel internal constructor(
             viewModelScope.launch(Dispatchers.Main) {
                 _items.value = readItemsWithTracking()
             }
-        }), TodoItemCodec)
+        }), TodoItemCodec::decodePayload)
 
     private fun readFilterWithTracking(): String =
         nativeFilterTrack(nativePtr, Runnable {
@@ -57,7 +57,7 @@ class TodoListViewModel internal constructor(
         })?.let { TodoItemCodec.decode(it) }
 
     fun updateItems(value: List<TodoItem>) {
-        nativeItemsSet(nativePtr, WireletList.encode(value, TodoItemCodec))
+        nativeItemsSet(nativePtr, WireletList.encode(value, TodoItemCodec::encodePayload))
     }
 
     fun updateFilter(value: String) {

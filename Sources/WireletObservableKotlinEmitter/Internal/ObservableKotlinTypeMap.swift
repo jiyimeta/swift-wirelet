@@ -70,8 +70,8 @@ enum ObservableKotlinTypeMap {
                 // a length-prefix + count header. Matches the WireletList
                 // shape (Phase 3 runtime).
                 nativeSetParam: "ByteArray",
-                decodeTemplate: "WireletList.decode($1, \(codec))",
-                encodeTemplate: "WireletList.encode($1, \(codec))",
+                decodeTemplate: "WireletList.decode($1, \(codec)::decodePayload)",
+                encodeTemplate: "WireletList.encode($1, \(codec)::encodePayload)",
                 extraImports: [
                     "\(config.modelPackage).\(config.nameTransform.apply(to: elementTypeName))",
                     "\(config.codecPackage).\(codec)",
