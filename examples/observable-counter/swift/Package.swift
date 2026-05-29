@@ -26,6 +26,9 @@ let package = Package(
             dependencies: [
                 .product(name: "Wirelet", package: "swift-wirelet"),
                 .product(name: "WireletObservable", package: "swift-wirelet"),
+            ],
+            plugins: [
+                .plugin(name: "WireletObservableBridges", package: "swift-wirelet"),
             ]
         ),
     ]
