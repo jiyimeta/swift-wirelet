@@ -36,7 +36,14 @@ android {
         jvmTarget = "17"
     }
 
-    sourceSets["main"].kotlin.srcDirs("src/main/kotlin")
+    sourceSets["main"].kotlin.srcDirs(
+        "src/main/kotlin",
+        // Phase 3 Wirelet plugin currently only wires generated dirs into
+        // `SourceSetContainer` (Kotlin/JVM). On Android projects that
+        // extension is absent, so add the generated dirs manually here.
+        "build/generated/wirelet/main/kotlin",
+        "build/generated/wirelet/observable/main/kotlin",
+    )
     sourceSets["androidTest"].kotlin.srcDirs("src/androidTest/kotlin")
 }
 
