@@ -48,7 +48,9 @@ wirelet {
     sources {
         register("main") {
             schemaPaths.from(file("../../swift/Sources/ObservableCounterJNI"))
-            packageName.set("io.github.jiyimeta.observablecounter")
+            codecPackage.set("io.github.jiyimeta.observablecounter")
+            modelPackage.set("io.github.jiyimeta.observablecounter")
+            emitModels.set(true)
         }
     }
 
