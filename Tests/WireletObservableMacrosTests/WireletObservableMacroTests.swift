@@ -53,9 +53,9 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
         )
     }
 
-    func testUnsupportedExposedMethodSignatureRaisesDiagnosticMultiArg() {
-        // @WireletExpose is itself a peer macro returning [] so it is stripped
-        // from the expansion; the diagnostic still fires from @WireletObservable.
+    func multiArgExposedMethodIsAccepted() {
+        // Multi-arg @WireletExpose methods are now accepted. The macro is
+        // marker-only and emits no code; bridges come from the build tool plugin.
         assertMacroExpansion(
             """
             @WireletObservable
@@ -71,18 +71,13 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
                 public func twoArgs(_ a: Int32, _ b: Int32) {}
             }
             """,
-            diagnostics: [
-                .init(
-                    message: "@WireletExpose only supports zero-arg methods or a single @WireFormat argument in Phase 1.",
-                    line: 5,
-                    column: 17
-                ),
-            ],
+            diagnostics: [],
             macros: macroSpecs
         )
     }
 
-    func testUnsupportedExposedMethodSignatureRaisesDiagnosticPrimitiveArg() {
+    func primitiveArgExposedMethodIsAccepted() {
+        // Single-primitive-arg @WireletExpose methods are now accepted.
         assertMacroExpansion(
             """
             @WireletObservable
@@ -98,13 +93,7 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
                 public func setValue(_ value: Int32) {}
             }
             """,
-            diagnostics: [
-                .init(
-                    message: "@WireletExpose only supports zero-arg methods or a single @WireFormat argument in Phase 1.",
-                    line: 5,
-                    column: 17
-                ),
-            ],
+            diagnostics: [],
             macros: macroSpecs
         )
     }

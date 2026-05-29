@@ -19,7 +19,7 @@ enum WireletObservableDiagnostic: String, DiagnosticMessage {
         case .unsupportedPropertyType:
             return "Unsupported property type for @WireletObservable. Use a primitive, String, @WireFormat type, or Optional/Array thereof."
         case .unsupportedExposedMethodSignature:
-            return "@WireletExpose only supports zero-arg methods or a single @WireFormat argument in Phase 1."
+            return "@WireletExpose method parameter must be a primitive, String, @WireFormat type, or Optional / Array thereof."
         }
     }
 }

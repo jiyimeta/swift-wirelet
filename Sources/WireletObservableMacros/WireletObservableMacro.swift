@@ -26,28 +26,9 @@ public struct WireletObservableMacro: PeerMacro {
             return []
         }
 
-        // Diagnose unsupported @WireletExpose method signatures early, at
-        // attribute-application time, so the consumer sees the error in the
-        // editor rather than waiting for plugin run time.
-        for member in classDecl.memberBlock.members {
-            guard let funcDecl = member.decl.as(FunctionDeclSyntax.self) else { continue }
-            guard hasWireletExposeAttribute(funcDecl) else { continue }
-            let params = funcDecl.signature.parameterClause.parameters
-            if params.count > 1 {
-                context.diagnose(Diagnostic(
-                    node: Syntax(funcDecl.name),
-                    message: WireletObservableDiagnostic.unsupportedExposedMethodSignature
-                ))
-            } else if params.count == 1, let p = params.first {
-                let t = p.type.trimmedDescription
-                if isPrimitiveType(t) || t == "String" {
-                    context.diagnose(Diagnostic(
-                        node: Syntax(funcDecl.name),
-                        message: WireletObservableDiagnostic.unsupportedExposedMethodSignature
-                    ))
-                }
-            }
-        }
+        // (no per-method diagnostic — the schema parser + classifier
+        // downstream accept any arity. Unrepresentable types surface as a
+        // compile error in the generated bridge.)
         return []
     }
 
@@ -64,21 +45,5 @@ public struct WireletObservableMacro: PeerMacro {
         }
     }
 
-    private static func hasWireletExposeAttribute(_ funcDecl: FunctionDeclSyntax) -> Bool {
-        funcDecl.attributes.contains { element in
-            guard let attribute = element.as(AttributeSyntax.self) else { return false }
-            return attribute.attributeName.trimmedDescription == "WireletExpose"
-        }
-    }
 
-    private static func isPrimitiveType(_ typeText: String) -> Bool {
-        switch typeText {
-        case "Int8", "Int16", "Int32", "Int64",
-             "UInt8", "UInt16", "UInt32", "UInt64",
-             "Bool", "Float", "Double":
-            return true
-        default:
-            return false
-        }
-    }
 }
