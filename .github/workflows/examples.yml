@@ -70,18 +70,18 @@ jobs:
 
       - name: Install Swift Android SDK
         env:
-          # The matching artifact bundle URL for swift-6.3.2-RELEASE Android
-          # aarch64 is published on https://www.swift.org/install/. Confirm
-          # at run time and adjust if swift.org moves the file.
-          SDK_URL: https://download.swift.org/swift-6.3.2-release/android-aarch64/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE-android-aarch64-0.1.artifactbundle.tar.gz
+          # Canonical Swift Android SDK URL per https://www.swift.org/install/.
+          # The previous `android-aarch64/...-0.1.artifactbundle.tar.gz` form
+          # redirects to swift.org/404.html — the real bundle lives under
+          # `android-sdk/<release>/<release>_android.artifactbundle.tar.gz`.
+          SDK_URL: https://download.swift.org/swift-6.3.2-release/android-sdk/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE_android.artifactbundle.tar.gz
           # SHA-256 of the artifact bundle above. Recompute via
           # `shasum -a 256` if the URL ever changes.
-          SDK_CHECKSUM: c87fbf6db0f01f31c28476614678d3e406a29842182172840f8d9eaee00fa929
+          SDK_CHECKSUM: 939e933549d12d28f2e0bf71019d734d309859e9773c572657ce565a81f85d68
         run: |
           # swift sdk install does not follow swift.org CDN redirects
-          # reliably from the runner (reports badResponseStatusCode(404)
-          # despite a 100% download). curl handles redirects cleanly;
-          # install from the local copy.
+          # reliably from the runner. curl handles them cleanly; install
+          # from the local copy.
           curl -fSL --retry 3 -o /tmp/swift-android-sdk.tar.gz "$SDK_URL"
           swift sdk install /tmp/swift-android-sdk.tar.gz --checksum "$SDK_CHECKSUM"
           swift sdk list
