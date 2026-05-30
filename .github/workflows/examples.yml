@@ -62,7 +62,9 @@ jobs:
           java-version: '17'
 
       - name: Install Swift
-        uses: swift-actions/setup-swift@v2
+        # swift-actions/setup-swift@v2 has no 6.3.2 in its version manifest.
+        # SwiftyLab/setup-swift covers newer toolchains.
+        uses: SwiftyLab/setup-swift@latest
         with:
           swift-version: '6.3.2'
 
