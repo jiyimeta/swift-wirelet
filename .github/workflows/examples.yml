@@ -78,7 +78,12 @@ jobs:
           # `shasum -a 256` if the URL ever changes.
           SDK_CHECKSUM: c87fbf6db0f01f31c28476614678d3e406a29842182172840f8d9eaee00fa929
         run: |
-          swift sdk install "$SDK_URL" --checksum "$SDK_CHECKSUM"
+          # swift sdk install does not follow swift.org CDN redirects
+          # reliably from the runner (reports badResponseStatusCode(404)
+          # despite a 100% download). curl handles redirects cleanly;
+          # install from the local copy.
+          curl -fSL --retry 3 -o /tmp/swift-android-sdk.tar.gz "$SDK_URL"
+          swift sdk install /tmp/swift-android-sdk.tar.gz --checksum "$SDK_CHECKSUM"
           swift sdk list
 
       - name: Set up Gradle
