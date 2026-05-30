@@ -74,8 +74,11 @@ jobs:
           # aarch64 is published on https://www.swift.org/install/. Confirm
           # at run time and adjust if swift.org moves the file.
           SDK_URL: https://download.swift.org/swift-6.3.2-release/android-aarch64/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE-android-aarch64-0.1.artifactbundle.tar.gz
+          # SHA-256 of the artifact bundle above. Recompute via
+          # `shasum -a 256` if the URL ever changes.
+          SDK_CHECKSUM: c87fbf6db0f01f31c28476614678d3e406a29842182172840f8d9eaee00fa929
         run: |
-          swift sdk install "$SDK_URL"
+          swift sdk install "$SDK_URL" --checksum "$SDK_CHECKSUM"
           swift sdk list
 
       - name: Set up Gradle
