@@ -43,7 +43,11 @@ jobs:
 
   observable-counter-emulator:
     name: examples/observable-counter (emulator smoke)
-    runs-on: ubuntu-latest
+    # arm64-v8a Android system image cannot run under QEMU on an x86_64
+    # host (FATAL "CPU Architecture not supported by QEMU2 on x86_64").
+    # The Swift Android SDK ships only aarch64 binaries, so the emulator
+    # arch is fixed — run on a native ARM runner.
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
