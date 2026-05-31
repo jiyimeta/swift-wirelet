@@ -43,10 +43,17 @@ jobs:
 
   observable-counter-emulator:
     name: examples/observable-counter (emulator smoke)
-    # arm64-v8a Android system image cannot run under QEMU on an x86_64
-    # host (FATAL "CPU Architecture not supported by QEMU2 on x86_64").
-    # The Swift Android SDK ships only aarch64 binaries, so the emulator
-    # arch is fixed — run on a native ARM runner.
+    # DISABLED in Phase 5. Hosted-runner architecture mismatch:
+    # - ubuntu-latest (x86_64) cannot run arm64-v8a system images
+    #   (QEMU2: "CPU Architecture not supported on x86_64 host").
+    # - ubuntu-24.04-arm exposes no /dev/kvm AND Google does not ship
+    #   an `emulator` package for Linux arm64 in sdkmanager.
+    # The cross-compiled .so targets aarch64-unknown-linux-android28,
+    # so the system image arch is fixed. Migration to macos-latest
+    # (Apple Silicon — native arm64 + the emulator binary exists) is
+    # the planned follow-up. Local build.sh verifies the pipeline
+    # end-to-end in the meantime.
+    if: false
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
