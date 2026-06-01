@@ -17,6 +17,7 @@ let package = Package(
     products: [
         .library(name: "Wirelet", targets: ["Wirelet"]),
         .library(name: "WireletObservable", targets: ["WireletObservable"]),
+        .library(name: "WireletProvided", targets: ["WireletProvided"]),
         .executable(name: "emit-wirelet-kotlin", targets: ["EmitWireletKotlin"]),
         .executable(name: "emit-wirelet-observable", targets: ["EmitWireletObservable"]),
         .library(name: "WireletObservableSwiftBridgesEmitter", targets: ["WireletObservableSwiftBridgesEmitter"]),
@@ -59,6 +60,21 @@ let package = Package(
                 "Wirelet",
                 "WireletObservableMacros",
                 "CWireletJNI",
+            ]
+        ),
+        .macro(
+            name: "WireletProvidedMacros",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+            ]
+        ),
+        .target(
+            name: "WireletProvided",
+            dependencies: [
+                "WireletProvidedMacros",
             ]
         ),
         .target(
@@ -161,6 +177,14 @@ let package = Package(
             dependencies: [
                 "WireletObservableMacros",
                 "WireletObservable",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ]
+        ),
+        .testTarget(
+            name: "WireletProvidedMacrosTests",
+            dependencies: [
+                "WireletProvidedMacros",
+                "WireletProvided",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ]
         ),
