@@ -91,14 +91,29 @@ public final class JObject: @unchecked Sendable {
             }
             envValue.pointee.DeleteLocalRef(env, arr)
             return buffer
+        // Flatten `[UInt8]??` into one `nil`: outer nil = attach/resolve
+        // failure, inner nil = Kotlin returned null.
         } ?? nil
     }
 
     // MARK: - Core
 
+    /// Drains (describes + clears) any pending Java exception on `env`.
+    /// Returns `true` if an exception was pending. JNI forbids calling most
+    /// functions with a pending exception, so this must run before any
+    /// follow-up JNI call on the same thread.
+    @discardableResult
+    private func drainException(_ env: UnsafeMutablePointer<JNIEnv?>, _ envValue: JNIEnv) -> Bool {
+        guard envValue.pointee.ExceptionCheck(env) != 0 else { return false }
+        envValue.pointee.ExceptionDescribe(env)
+        envValue.pointee.ExceptionClear(env)
+        return true
+    }
+
     /// Attaches the current thread, resolves the method, marshals `args`
-    /// into a `jvalue` array (freeing object local refs afterwards),
-    /// invokes `body`, and clears any pending Java exception.
+    /// into a `jvalue` array (freeing object local refs and the resolved
+    /// `jclass` afterwards), invokes `body`, and drains any pending Java
+    /// exception so a later call on this thread starts clean.
     private func perform<R>(
         method: String,
         signature: String,
@@ -108,11 +123,19 @@ public final class JObject: @unchecked Sendable {
         var env: UnsafeMutablePointer<JNIEnv?>?
         let attachResult = vm.pointee?.pointee.AttachCurrentThread(vm, &env, nil) ?? JNI_ERR
         guard attachResult == JNI_OK, let env, let envValue = env.pointee else { return nil }
-        guard let cls = envValue.pointee.GetObjectClass(env, globalRef) else { return nil }
-        guard let mid = envValue.pointee.GetMethodID(env, cls, method, signature) else { return nil }
+        guard let cls = envValue.pointee.GetObjectClass(env, globalRef) else {
+            drainException(env, envValue)
+            return nil
+        }
+        defer { envValue.pointee.DeleteLocalRef(env, cls) }
+        guard let mid = envValue.pointee.GetMethodID(env, cls, method, signature) else {
+            drainException(env, envValue)
+            return nil
+        }
 
         var jargs: [jvalue] = []
         var localRefs: [jobject] = []
+        defer { for ref in localRefs { envValue.pointee.DeleteLocalRef(env, ref) } }
         jargs.reserveCapacity(args.count)
         for arg in args {
             switch arg {
@@ -122,7 +145,10 @@ public final class JObject: @unchecked Sendable {
             case .float(let v): jargs.append(jvalue(f: jfloat(v)))
             case .double(let v): jargs.append(jvalue(d: jdouble(v)))
             case .bytes(let bytes):
-                guard let arr = envValue.pointee.NewByteArray(env, jsize(bytes.count)) else { return nil }
+                guard let arr = envValue.pointee.NewByteArray(env, jsize(bytes.count)) else {
+                    drainException(env, envValue)
+                    return nil
+                }
                 if !bytes.isEmpty {
                     bytes.withUnsafeBufferPointer { bp in
                         bp.baseAddress!.withMemoryRebound(to: jbyte.self, capacity: bytes.count) { jb in
@@ -133,20 +159,26 @@ public final class JObject: @unchecked Sendable {
                 localRefs.append(arr)
                 jargs.append(jvalue(l: arr))
             case .string(let s):
-                guard let js = s.withCString({ envValue.pointee.NewStringUTF(env, $0) }) else { return nil }
+                guard let js = s.withCString({ envValue.pointee.NewStringUTF(env, $0) }) else {
+                    drainException(env, envValue)
+                    return nil
+                }
                 localRefs.append(js)
                 jargs.append(jvalue(l: js))
             }
         }
-        defer { for ref in localRefs { envValue.pointee.DeleteLocalRef(env, ref) } }
+
+        // A marshaling step (e.g. SetByteArrayRegion) may have raised without
+        // returning nil; bail before issuing the call rather than invoke JNI
+        // with an exception pending.
+        if drainException(env, envValue) {
+            return nil
+        }
 
         let result = jargs.withUnsafeMutableBufferPointer { buf in
             body(env, envValue, mid, buf.baseAddress)
         }
-        if envValue.pointee.ExceptionCheck(env) != 0 {
-            envValue.pointee.ExceptionDescribe(env)
-            envValue.pointee.ExceptionClear(env)
-        }
+        drainException(env, envValue)
         return result
     }
 }
