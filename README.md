@@ -23,7 +23,7 @@ Pinned coordinates:
 
 | Surface | Identifier |
 |---|---|
-| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "<TBD-fill-after-tag>")` (= `v0.2.2`) |
+| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "cd0d148e9d4dddad1c6afc47d5ef0a8d6f4a4a13")` (= `v0.2.2`) |
 | Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.2.2` |
 | Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.2.2` |
 | Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.2.2"` |
