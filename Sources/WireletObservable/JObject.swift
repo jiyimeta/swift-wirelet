@@ -72,6 +72,24 @@ public final class JObject: @unchecked Sendable {
         }
     }
 
+    public func callLong(method: String, signature: String, _ args: [Arg] = []) -> Int64? {
+        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
+            Int64(envValue.pointee.CallLongMethodA(env, globalRef, mid, jargs))
+        }
+    }
+
+    public func callFloat(method: String, signature: String, _ args: [Arg] = []) -> Float? {
+        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
+            Float(envValue.pointee.CallFloatMethodA(env, globalRef, mid, jargs))
+        }
+    }
+
+    public func callDouble(method: String, signature: String, _ args: [Arg] = []) -> Double? {
+        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
+            Double(envValue.pointee.CallDoubleMethodA(env, globalRef, mid, jargs))
+        }
+    }
+
     /// Calls a method whose JNI return type is `[B` (a byte array) and
     /// copies the bytes out. Returns `nil` if the Kotlin method returned
     /// `null` or the call failed.
@@ -93,6 +111,25 @@ public final class JObject: @unchecked Sendable {
             return buffer
         // Flatten `[UInt8]??` into one `nil`: outer nil = attach/resolve
         // failure, inner nil = Kotlin returned null.
+        } ?? nil
+    }
+
+    /// Calls a method whose JNI return type is `Ljava/lang/String;` and
+    /// copies the UTF-8 contents out. Returns `nil` if the Kotlin method
+    /// returned `null` or the call failed.
+    public func callString(method: String, signature: String, _ args: [Arg] = []) -> String? {
+        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs -> String? in
+            guard let obj = envValue.pointee.CallObjectMethodA(env, globalRef, mid, jargs) else {
+                return nil
+            }
+            let cstr = envValue.pointee.GetStringUTFChars(env, obj, nil)
+            defer {
+                if let cstr { envValue.pointee.ReleaseStringUTFChars(env, obj, cstr) }
+                envValue.pointee.DeleteLocalRef(env, obj)
+            }
+            guard let cstr else { return nil }
+            return String(cString: cstr)
+        // Flatten `String??` into one `nil`, mirroring callBytes.
         } ?? nil
     }
 
