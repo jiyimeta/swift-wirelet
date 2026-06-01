@@ -84,6 +84,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "WireletProvidedSchema",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
+        .target(
             name: "WireletObservableKotlinEmitter",
             dependencies: [
                 "WireletObservableSchema",
@@ -160,6 +167,11 @@ let package = Package(
         .testTarget(
             name: "WireletObservableSchemaTests",
             dependencies: ["WireletObservableSchema"],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "WireletProvidedSchemaTests",
+            dependencies: ["WireletProvidedSchema"],
             resources: [.copy("Fixtures")]
         ),
         .testTarget(
