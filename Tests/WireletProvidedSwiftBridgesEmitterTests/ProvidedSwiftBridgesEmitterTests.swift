@@ -117,6 +117,29 @@ struct ProvidedSwiftBridgesEmitterTests {
         #expect(content.contains(#"adapter.callVoid(method: "addAllWire", signature: "([B)V", [.bytes(arg0Bytes)])"#))
     }
 
+    // MARK: - Two byte-bearing args keep their index alignment
+
+    @Test func multipleByteArgsStayAligned() throws {
+        let source = """
+        import WireletProvided
+        @WireletProvided
+        protocol Merge {
+            func merge(_ a: TodoItem, _ b: [TodoItem])
+        }
+        """
+        let url = try writeTmp(name: "Merge.swift", content: source)
+        let content = try ProvidedSwiftBridgesEmitter().emit(sources: [url])[0].content
+        // First param (wireFormat) -> arg0Bytes via encodeToData.
+        #expect(content.contains("let arg0Bytes = [UInt8](a.encodeToData())"))
+        // Second param (array) -> writer1 + arg1Bytes, indexed by position.
+        #expect(content.contains("var writer1 = WireFormatWriter()"))
+        #expect(content.contains("writer1.writeVarint(UInt64(b.count))"))
+        #expect(content.contains("for element in b { element.encode(into: &writer1) }"))
+        #expect(content.contains("let arg1Bytes = [UInt8](writer1.data)"))
+        // Descriptor + Arg list stay positionally aligned (two byte args).
+        #expect(content.contains(#"adapter.callVoid(method: "mergeWire", signature: "([B[B)V", [.bytes(arg0Bytes), .bytes(arg1Bytes)])"#))
+    }
+
     // MARK: - Single @WireFormat return traps on missing/invalid bytes
 
     @Test func wireFormatReturn() throws {
