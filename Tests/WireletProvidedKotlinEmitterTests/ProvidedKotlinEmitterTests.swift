@@ -74,7 +74,7 @@ struct ProvidedKotlinEmitterTests {
 
         // Adapter wire methods.
         #expect(c.contains("fun loadAllWire(): ByteArray = WireletList.encode(impl.loadAll(), TodoItemCodec::encodePayload)"))
-        #expect(c.contains("fun addWire(bytes: ByteArray) { impl.add(TodoItemCodec.decode(bytes)) }"))
+        #expect(c.contains("fun addWire(item: ByteArray) { impl.add(TodoItemCodec.decode(item)) }"))
         #expect(c.contains("fun removeWire(id: Int) { impl.remove(id) }"))
     }
 
@@ -129,5 +129,37 @@ struct ProvidedKotlinEmitterTests {
         #expect(throws: ProvidedKotlinEmitterError.self) {
             _ = try ProvidedKotlinEmitter(config: config).emit(schema: schema)
         }
+    }
+
+    // MARK: - 4. multipleByteArgsCompile
+
+    /// A protocol method with two ByteArray-mapped parameters must emit two
+    /// DISTINCT wire parameter names (using the friendly param names), so the
+    /// generated Kotlin is valid (no duplicate identifier in the same parameter
+    /// list).
+    @Test func multipleByteArgsCompile() throws {
+        let source = """
+        import WireletProvided
+
+        @WireletProvided
+        protocol MergeService {
+            func merge(_ a: TodoItem, _ b: [TodoItem])
+        }
+        """
+        let schema = ProvidedSchemaParser.parse(source: source, fileName: "MergeService.swift")
+        let config = makeConfig()
+        let files = try ProvidedKotlinEmitter(config: config).emit(schema: schema)
+
+        #expect(files.count == 1)
+        let c = try #require(files.first).content
+
+        // Interface: friendly types.
+        #expect(c.contains("fun merge(a: TodoItem, b: List<TodoItem>)"))
+
+        // Adapter: both wire params use distinct friendly names, not "bytes".
+        #expect(c.contains("fun mergeWire(a: ByteArray, b: ByteArray)"))
+
+        // Body decodes each param from its own named variable.
+        #expect(c.contains("impl.merge(TodoItemCodec.decode(a), WireletList.decode(b, TodoItemCodec::decodePayload))"))
     }
 }

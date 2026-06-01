@@ -96,15 +96,14 @@ enum AdapterEmitter {
         }
 
         // --- Adapter wire method ---
-        // For ByteArray wire params the semantic name (`item`) belongs to the
-        // friendly interface; on the wire side `bytes` better describes the
-        // content, and matches the hand-written `TodoStore.kt` golden.
+        // Use the friendly param name for every wire parameter (including
+        // ByteArray ones).  JNI resolves adapter methods by name+descriptor,
+        // not by parameter name, so the wire name is free — and reusing the
+        // friendly name is the only way to avoid collisions when a method has
+        // two or more ByteArray parameters (e.g. `merge(_ a: T, _ b: [T])`).
         let wireParamPairs: [(wireName: String, wireType: String, decodeExpr: String)] =
             paramInfos.map { pname, info in
-                if info.wireType == "ByteArray" {
-                    return ("bytes", info.wireType, info.decode("bytes"))
-                }
-                return (pname, info.wireType, info.decode(pname))
+                (pname, info.wireType, info.decode(pname))
             }
         let wireParams = wireParamPairs.map { "\($0.wireName): \($0.wireType)" }
             .joined(separator: ", ")
