@@ -16,17 +16,17 @@ plugin, the Observable bridge (`@WireletObservable @Observable` →
 Kotlin `ViewModel<StateFlow>` via JNI), and the GitHub Actions publish
 pipeline are all green. Tags `phase-1-complete` through
 `phase-5-complete` are pinned on `main`; `v0.1.0-alpha.1`,
-`v0.1.0-alpha.2`, `v0.2.0`, and `v0.2.1` are published to GitHub
-Packages.
+`v0.1.0-alpha.2`, `v0.2.0`, `v0.2.1`, and `v0.2.2` are published to
+GitHub Packages.
 
 Pinned coordinates:
 
 | Surface | Identifier |
 |---|---|
-| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "bf0d0cfe24ddddc96a9a2de35c5b8dde5bb52dbb")` (= `v0.2.1`) |
-| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.2.1` |
-| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.2.1` |
-| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.2.1"` |
+| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "<TBD-fill-after-tag>")` (= `v0.2.2`) |
+| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.2.2` |
+| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.2.2` |
+| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.2.2"` |
 
 Reading Maven artifacts requires authenticating against
 `maven.pkg.github.com/jiyimeta/swift-wirelet` with a classic GitHub

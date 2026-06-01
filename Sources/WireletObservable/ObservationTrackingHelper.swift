@@ -8,6 +8,7 @@ import Observation
 /// storage accessed inside the `read` closure. To keep emitting, the
 /// caller must invoke `read(_:on:onChange:)` again from inside `onChange`.
 /// The macro-generated Kotlin side does exactly that via the JNI bridge.
+@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
 public enum ObservationTrackingHelper {
     /// Reads `keyPath` on `subject` under an Observation tracker. Returns
     /// the snapshot value and installs `onChange` as the one-shot callback.
