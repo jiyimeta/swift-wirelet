@@ -6,6 +6,11 @@ let package = Package(
     name: "swift-wirelet",
     platforms: [
         .macOS(.v14),
+        // iOS 17 is the floor for `Observation.withObservationTracking`,
+        // used by WireletObservable. Without an explicit iOS entry SwiftPM
+        // defaults to iOS 12.0 and the framework fails to compile when
+        // consumed by an iOS app target.
+        .iOS(.v17),
     ],
     products: [
         .library(name: "Wirelet", targets: ["Wirelet"]),
