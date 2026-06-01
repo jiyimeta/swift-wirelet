@@ -1,0 +1,7 @@
+{
+  "interfacePackage": "io.github.jiyimeta.sample.provided.generated",
+  "adapterPackage": "io.github.jiyimeta.sample.provided.generated",
+  "modelPackage": "io.github.jiyimeta.sample",
+  "codecPackage": "io.github.jiyimeta.sample.codecs",
+  "runtimePackage": "io.github.jiyimeta.wirelet.observable"
+}

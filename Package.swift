@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "WireletProvided", targets: ["WireletProvided"]),
         .executable(name: "emit-wirelet-kotlin", targets: ["EmitWireletKotlin"]),
         .executable(name: "emit-wirelet-observable", targets: ["EmitWireletObservable"]),
+        .executable(name: "emit-wirelet-provided", targets: ["EmitWireletProvided"]),
         .library(name: "WireletObservableSwiftBridgesEmitter", targets: ["WireletObservableSwiftBridgesEmitter"]),
         .executable(name: "emit-wirelet-observable-swift-bridges", targets: ["EmitWireletObservableSwiftBridges"]),
         .plugin(name: "WireletObservableBridges", targets: ["WireletObservableBridges"]),
@@ -118,6 +119,13 @@ let package = Package(
             dependencies: [
                 "WireletObservableSchema",
                 "WireletObservableKotlinEmitter",
+            ]
+        ),
+        .executableTarget(
+            name: "EmitWireletProvided",
+            dependencies: [
+                "WireletProvidedSchema",
+                "WireletProvidedKotlinEmitter",
             ]
         ),
         .target(
@@ -227,6 +235,15 @@ let package = Package(
                 "EmitWireletObservable",
                 "WireletObservableKotlinEmitter",
                 "WireletObservableSchema",
+            ],
+            resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "EmitWireletProvidedTests",
+            dependencies: [
+                "EmitWireletProvided",
+                "WireletProvidedKotlinEmitter",
+                "WireletProvidedSchema",
             ],
             resources: [.copy("Fixtures")]
         ),
