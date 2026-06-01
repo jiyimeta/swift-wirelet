@@ -392,3 +392,61 @@ one (the reactive VM + Compose UI are already there):
 - **`@WireletProvided` on Apple unit tests** — confirm the macro is a pure inert
   marker (no peer expansion) on non-Android so the same source compiles for
   host tests.
+
+## Phase 0 findings (2026-06-02)
+
+Phase 0 (de-risk) is **complete and validated on a real device** (Pixel 8a,
+Android 16). The hand-written stand-ins live in `examples/observable-counter`
+(`TodoStore.swift` + `StoreProbe.swift` on Swift, `TodoStore.kt` on Kotlin) and
+the instrumented test `ProvidedRoundTripInstrumentedTest` passes: Swift drives a
+Kotlin `TodoStore` (add ×2 with a `jbyteArray` TLV arg, remove ×1 with a `jint`
+arg, `loadAll` returning a `jbyteArray` Swift decodes) and the round trip
+reports the correct count. Branch `provided-bridge`, commits through `bea8da8`.
+
+What the codegen phases (1–5) can now rely on:
+
+- **Generalized `JObject` API works as designed.** The `Arg` enum
+  (`int`/`long`/`bool`/`float`/`double`/`bytes`/`string`) plus
+  `callVoid`/`callInt`/`callBool`/`callBytes(method:signature:_ args:)` are
+  sufficient to express the proxy. The Swift emitter (Phase 2) should generate
+  exactly these call shapes with the JNI descriptor strings (`([B)V`, `(I)V`,
+  `()[B`, …). Confirmed: `JObject` is the right home for the shared global-ref
+  wrapper (resolves the "where the JNI-call helper lives" open question →
+  generalize `JObject`).
+- **Two JNI-hygiene rules the generator MUST bake in** (found in code review,
+  fixed in `JObject.perform`): (a) the `jclass` from `GetObjectClass` is a local
+  ref and must be `DeleteLocalRef`'d every call — it leaks otherwise on the
+  long-lived attached thread; `jmethodID` must NOT be deleted. (b) Drain
+  (describe + clear) any pending Java exception on resolution-failure exits,
+  after argument marshaling (bail before issuing the call), and after the call —
+  JNI is UB if a call is made with an exception pending. Generated proxies route
+  through this hardened `perform`, so they inherit both.
+- **Default JNI name binding coexists cleanly with the observable
+  `JNI_OnLoad`/`RegisterNatives`.** The probe used a plain
+  `@_cdecl("Java_<pkg>_<Class>_<method>")` resolved by JVM default naming, in the
+  *same* `.so` as the `@WireletObservable`-generated bridges (which register via
+  the sidecar-driven `JNI_OnLoad`). No collision. **Caveat for Phase 2:** the
+  real injection path — `nativeNew(service)` on the `@WireletObservable` class —
+  was NOT exercised here (the probe is a standalone entry, not the VM
+  constructor). Phase 2 must still validate handing the Kotlin adapter `jobject`
+  into the generated `nativeNew` and wrapping it into a proxy before
+  constructing the observable instance.
+- **Kotlin/Swift codec contract (match these in the emitters).** Kotlin:
+  `WireletList.encode(value: List<T>, encodePayload: (T, BinaryWriter) -> Unit):
+  ByteArray` = `varint count` + each element length-prefixed; generated
+  `TodoItemCodec` exposes `encode(value)` / `encodePayload(value, w)` /
+  `decode(data)` / `decodePayload(r)`. Swift: a single value is `encodeToData()`
+  (top-level, length-prefixed) ↔ Kotlin `decode`; a list is `readVarint()` count
+  + `TodoItem(from:&reader)` per element ↔ Kotlin `WireletList.encode(…,
+  ::encodePayload)`. The generated adapter should use the method-reference form
+  (`WireletList.encode(list, TodoItemCodec::encodePayload)`), mirroring the
+  known-correct observable `items` StateFlow path.
+- **Kotlin `object` instance-method JNI shape:** for `object StoreProbe { external
+  fun … }` (no `@JvmStatic`), the 2nd JNI parameter is the singleton `jobject`,
+  not a `jclass`. Harmless when ignored, but the injection entry in Phase 2 (a
+  `companion object` `@JvmStatic external fun nativeNew`) will instead receive a
+  `jclass` there — keep the distinction in mind when generating `@_cdecl`
+  signatures.
+- **Build facts:** clean Android cross-compile of the example ≈ 9 min; warm
+  incremental rebuilds are seconds. `connectedDebugAndroidTest` ≈ 20 s on
+  device. The example builds arm64-v8a only.
