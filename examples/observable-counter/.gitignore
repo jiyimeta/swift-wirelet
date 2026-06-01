@@ -5,3 +5,7 @@ android-app/local.properties
 android-app/app/src/main/jniLibs/
 swift/.build/
 swift/.swiftpm/
+
+# Generated JNI sidecar: written by the Wirelet Gradle plugin, consumed by the
+# Swift WireletObservableBridges build tool plugin to emit JNI_OnLoad.
+swift/Sources/*/.wirelet-observable-jni.json
