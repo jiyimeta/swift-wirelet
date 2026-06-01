@@ -135,6 +135,14 @@ let package = Package(
                 "WireletObservableSchema",
             ]
         ),
+        .target(
+            name: "WireletProvidedKotlinEmitter",
+            dependencies: [
+                "WireletProvidedSchema",
+                "WireletObservableSchema",
+                "WireletKotlinEmitter",
+            ]
+        ),
         .executableTarget(
             name: "EmitWireletObservableSwiftBridges",
             dependencies: ["WireletObservableSwiftBridgesEmitter"]
@@ -229,6 +237,10 @@ let package = Package(
         .testTarget(
             name: "WireletProvidedSwiftBridgesEmitterTests",
             dependencies: ["WireletProvidedSwiftBridgesEmitter"]
+        ),
+        .testTarget(
+            name: "WireletProvidedKotlinEmitterTests",
+            dependencies: ["WireletProvidedKotlinEmitter"]
         ),
     ]
 )
