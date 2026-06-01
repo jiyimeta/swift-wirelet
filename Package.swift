@@ -128,6 +128,13 @@ let package = Package(
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ]
         ),
+        .target(
+            name: "WireletProvidedSwiftBridgesEmitter",
+            dependencies: [
+                "WireletProvidedSchema",
+                "WireletObservableSchema",
+            ]
+        ),
         .executableTarget(
             name: "EmitWireletObservableSwiftBridges",
             dependencies: ["WireletObservableSwiftBridgesEmitter"]
@@ -218,6 +225,10 @@ let package = Package(
         .testTarget(
             name: "WireletObservableSwiftBridgesEmitterTests",
             dependencies: ["WireletObservableSwiftBridgesEmitter"]
+        ),
+        .testTarget(
+            name: "WireletProvidedSwiftBridgesEmitterTests",
+            dependencies: ["WireletProvidedSwiftBridgesEmitter"]
         ),
     ]
 )
