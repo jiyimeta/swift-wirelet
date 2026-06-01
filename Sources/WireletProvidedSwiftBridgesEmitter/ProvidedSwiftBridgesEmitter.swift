@@ -105,7 +105,7 @@ public struct ProvidedSwiftBridgesEmitter {
             }
         }
         let argsTail = argExprs.isEmpty ? "" : ", [\(argExprs.joined(separator: ", "))]"
-        let descriptor = try descriptor(service: service, method: method)
+        let descriptor = try jniDescriptor(service: service, method: method)
         let call = try renderReturn(
             service: service, method: method,
             wireName: wireName, descriptor: descriptor, argsTail: argsTail
@@ -176,7 +176,11 @@ public struct ProvidedSwiftBridgesEmitter {
 
     // MARK: - JNI descriptor
 
-    private func descriptor(service: ProvidedService, method: ProvidedMethod) throws -> String {
+    /// Builds the JNI method descriptor `(params)return`. Optional return types
+    /// are mapped to `[B` here but are rejected by `renderReturn` before any
+    /// proxy is emitted — so a misleading descriptor is never produced. Keep the
+    /// two in sync if either side changes.
+    private func jniDescriptor(service: ProvidedService, method: ProvidedMethod) throws -> String {
         let params = method.parameters
             .map { fragment(InvokeArgClassifier.classify($0.typeText)) }
             .joined()
