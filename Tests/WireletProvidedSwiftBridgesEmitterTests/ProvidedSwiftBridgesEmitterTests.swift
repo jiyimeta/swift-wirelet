@@ -2,6 +2,41 @@ import Foundation
 import Testing
 import WireletProvidedSwiftBridgesEmitter
 
+// MARK: - SwiftPM plugin contract regression
+
+/// The `WireletProvidedBridges` SwiftPM build tool plugin lives in
+/// `Plugins/WireletProvidedBridges/Plugin.swift`. Plugin targets cannot
+/// depend on library targets, so the plugin code can't be unit-tested
+/// directly. This smoke test reads the plugin source as text and asserts
+/// the key invariant: that the plugin invokes the correct CLI tool and
+/// declares the expected output file suffix so SwiftPM compiles the
+/// generated `<Service>+WireletProxy.swift` files.
+@Suite("WireletProvidedBridgesPluginContract")
+struct WireletProvidedBridgesPluginContract {
+    @Test func pluginInvokesCorrectToolAndDeclaresProxyOutput() throws {
+        let pluginURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // Tests/WireletProvidedSwiftBridgesEmitterTests/
+            .deletingLastPathComponent()  // Tests/
+            .deletingLastPathComponent()  // swift-wirelet/
+            .appendingPathComponent("Plugins/WireletProvidedBridges/Plugin.swift")
+        let source = try String(contentsOf: pluginURL, encoding: .utf8)
+        #expect(
+            source.contains("EmitWireletProvidedSwiftBridges"),
+            """
+            Plugin.swift must reference the EmitWireletProvidedSwiftBridges tool name
+            so context.tool(named:) resolves the correct CLI executable.
+            """
+        )
+        #expect(
+            source.contains("+WireletProxy.swift"),
+            """
+            Plugin.swift must declare output files with the +WireletProxy.swift suffix
+            so SwiftPM compiles the generated proxy files into the consumer target.
+            """
+        )
+    }
+}
+
 @Suite("ProvidedSwiftBridgesEmitterTests")
 struct ProvidedSwiftBridgesEmitterTests {
 

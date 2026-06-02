@@ -23,7 +23,9 @@ let package = Package(
         .executable(name: "emit-wirelet-provided", targets: ["EmitWireletProvided"]),
         .library(name: "WireletObservableSwiftBridgesEmitter", targets: ["WireletObservableSwiftBridgesEmitter"]),
         .executable(name: "emit-wirelet-observable-swift-bridges", targets: ["EmitWireletObservableSwiftBridges"]),
+        .executable(name: "emit-wirelet-provided-swift-bridges", targets: ["EmitWireletProvidedSwiftBridges"]),
         .plugin(name: "WireletObservableBridges", targets: ["WireletObservableBridges"]),
+        .plugin(name: "WireletProvidedBridges", targets: ["WireletProvidedBridges"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
@@ -159,6 +161,15 @@ let package = Package(
             name: "WireletObservableBridges",
             capability: .buildTool(),
             dependencies: ["EmitWireletObservableSwiftBridges"]
+        ),
+        .executableTarget(
+            name: "EmitWireletProvidedSwiftBridges",
+            dependencies: ["WireletProvidedSwiftBridgesEmitter"]
+        ),
+        .plugin(
+            name: "WireletProvidedBridges",
+            capability: .buildTool(),
+            dependencies: ["EmitWireletProvidedSwiftBridges"]
         ),
         .testTarget(
             name: "WireletRuntimeTests",
