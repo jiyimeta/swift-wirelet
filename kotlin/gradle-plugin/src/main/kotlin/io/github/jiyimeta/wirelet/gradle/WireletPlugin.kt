@@ -14,6 +14,7 @@ class WireletPlugin : Plugin<Project> {
         val extension = target.extensions.create("wirelet", WireletExtension::class.java)
         extension.sources.all { registerSourceSet(target, extension, this) }
         extension.observable.all { registerObservableSourceSet(target, extension, this) }
+        extension.provided.all { registerProvidedSourceSet(target, extension, this) }
     }
 
     private fun registerObservableSourceSet(
@@ -173,6 +174,94 @@ class WireletPlugin : Plugin<Project> {
                     variant.sources.java?.addGeneratedSourceDirectory(
                         task,
                         GenerateWireletObservableViewModels::outputDir,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun registerProvidedSourceSet(
+        project: Project,
+        extension: WireletExtension,
+        entry: WireletProvidedSourceSet,
+    ) {
+        val taskName = "generateWireletProvidedInterfaces${
+            entry.name.replaceFirstChar { it.uppercaseChar() }
+        }"
+        val task = project.tasks.register(
+            taskName,
+            GenerateWireletProvidedInterfaces::class.java,
+        ) {
+            group = "wirelet"
+            description = "Generates @WireletProvided interface + adapter for source set '${entry.name}'."
+            schemaPaths.from(entry.schemaPaths)
+            swiftPackagePath.set(extension.swiftPackagePath)
+            interfacePackage.set(entry.interfacePackage)
+            adapterPackage.set(entry.adapterPackage)
+            modelPackage.set(entry.modelPackage)
+            codecPackage.set(entry.codecPackage)
+            runtimePackage.set(
+                entry.runtimePackage.orElse("io.github.jiyimeta.wirelet.observable"),
+            )
+            includePackages.set(entry.includePackages)
+            outputDir.set(
+                project.layout.buildDirectory.dir(
+                    "generated/wirelet/provided/${entry.name}/kotlin",
+                ),
+            )
+        }
+
+        project.plugins.withId("org.jetbrains.kotlin.jvm") {
+            wireProvidedOutputIntoKotlinSourceSet(project, entry.name, task)
+        }
+        wireProvidedOutputIntoAndroidVariants(project, entry.name, task)
+    }
+
+    private fun wireProvidedOutputIntoKotlinSourceSet(
+        project: Project,
+        sourceSetName: String,
+        task: TaskProvider<GenerateWireletProvidedInterfaces>,
+    ) {
+        val sourceSets = project.extensions.findByType(SourceSetContainer::class.java)
+            ?: return
+        val kotlinSourceSet = sourceSets.findByName(sourceSetName) ?: return
+        val kotlinDirs = kotlinSourceSet.extensions.findByName("kotlin")
+            as? SourceDirectorySet
+        kotlinDirs?.srcDir(task.flatMap { it.outputDir })
+
+        val compileTaskName = if (sourceSetName == "main") {
+            "compileKotlin"
+        } else {
+            "compile${sourceSetName.replaceFirstChar { it.uppercaseChar() }}Kotlin"
+        }
+        project.tasks.matching { it.name == compileTaskName }
+            .configureEach { dependsOn(task) }
+    }
+
+    /**
+     * Wire the `outputDir` of a provided interface generation task into every
+     * Android variant's Kotlin source set. Mirrors
+     * [wireObservableOutputIntoAndroidVariants].
+     */
+    private fun wireProvidedOutputIntoAndroidVariants(
+        project: Project,
+        sourceSetName: String,
+        task: TaskProvider<GenerateWireletProvidedInterfaces>,
+    ) {
+        listOf("com.android.application", "com.android.library").forEach { pluginId ->
+            project.plugins.withId(pluginId) {
+                val ext = project.extensions.findByType(
+                    AndroidComponentsExtension::class.java,
+                ) ?: return@withId
+                ext.onVariants { variant ->
+                    if (sourceSetName != "main") return@onVariants
+                    variant.sources.kotlin?.addGeneratedSourceDirectory(
+                        task,
+                        GenerateWireletProvidedInterfaces::outputDir,
+                    )
+                    variant.sources.java?.addGeneratedSourceDirectory(
+                        task,
+                        GenerateWireletProvidedInterfaces::outputDir,
                     )
                 }
             }

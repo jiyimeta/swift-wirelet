@@ -34,4 +34,12 @@ abstract class WireletExtension {
     fun observable(configure: Action<NamedDomainObjectContainer<WireletObservableSourceSet>>) {
         configure.execute(observable)
     }
+
+    /** Generation source sets for `@WireletProvided` interface + adapter pairs. */
+    abstract val provided: NamedDomainObjectContainer<WireletProvidedSourceSet>
+
+    /** Configure-by-name shorthand for `provided { ... }`. */
+    fun provided(configure: Action<NamedDomainObjectContainer<WireletProvidedSourceSet>>) {
+        configure.execute(provided)
+    }
 }
