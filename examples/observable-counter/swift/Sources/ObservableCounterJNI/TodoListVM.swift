@@ -45,6 +45,19 @@ public final class TodoListVM {
         totalCount = Int32(items.count)
     }
 
+    /// Exercises a `[String]` `@WireletExpose` argument (array of primitive):
+    /// adds one todo per title. De-risks the primitive-array method-arg bridge.
+    @WireletExpose
+    public func addTitles(_ titles: [String]) {
+        var next = Int32(store.loadAll().count) + 1
+        for title in titles {
+            store.add(TodoItem(id: next, title: title, done: false))
+            next += 1
+        }
+        items = store.loadAll()
+        totalCount = Int32(items.count)
+    }
+
     @WireletExpose
     public func setDone(_ id: Int32, _ done: Bool) {
         // Write the toggle through the store (upsert by id) so it survives the

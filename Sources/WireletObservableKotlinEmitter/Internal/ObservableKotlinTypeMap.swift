@@ -188,6 +188,13 @@ enum ObservableKotlinTypeMap {
             return ("\(kt)?", "ByteArray?",
                     { name in "\(name)?.let { \(codec).encode(it) }" })
         case .array(let elementTypeName):
+            // Array of the primitive `String`: there is no generated
+            // `StringCodec`, so route through the runtime's `encodeStrings`
+            // (bare-UTF-8 element payloads, length-prefixed by WireletList).
+            if case .string = InvokeArgClassifier.classify(elementTypeName) {
+                return ("List<String>", "ByteArray",
+                        { name in "WireletList.encodeStrings(\(name))" })
+            }
             let kt = config.nameTransform.apply(to: elementTypeName)
             let codec = kt + "Codec"
             let listType = "List<\(kt)>"

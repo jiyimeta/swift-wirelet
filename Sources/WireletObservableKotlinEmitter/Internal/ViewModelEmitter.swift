@@ -243,10 +243,16 @@ enum ViewModelEmitter {
                 imports.insert("\(config.modelPackage).\(kt)")
                 imports.insert("\(config.codecPackage).\(kt)Codec")
             case .array(let t):
-                let kt = config.nameTransform.apply(to: t)
-                imports.insert("\(config.modelPackage).\(kt)")
-                imports.insert("\(config.codecPackage).\(kt)Codec")
-                imports.insert("\(config.runtimePackage).WireletList")
+                // Primitive `String` arrays use the runtime's `encodeStrings`
+                // (no generated codec); only WireletList needs importing.
+                if case .string = InvokeArgClassifier.classify(t) {
+                    imports.insert("\(config.runtimePackage).WireletList")
+                } else {
+                    let kt = config.nameTransform.apply(to: t)
+                    imports.insert("\(config.modelPackage).\(kt)")
+                    imports.insert("\(config.codecPackage).\(kt)Codec")
+                    imports.insert("\(config.runtimePackage).WireletList")
+                }
             case .optionalPrimitive:
                 imports.insert("\(config.runtimePackage).WireletOptional")
             default:

@@ -45,4 +45,15 @@ object WireletList {
         }
         return w.toByteArray()
     }
+
+    /**
+     * Encode a `List<String>` for a `[String]` `@WireletExpose` method
+     * argument. Primitives have no generated `<Type>Codec`, so the element
+     * payload is the bare UTF-8 bytes; [encode]'s per-element length prefix
+     * supplies the framing. This matches the Swift decode side, which reads a
+     * varint count then `String(from:)` per element — i.e. varint(byteLen) +
+     * UTF-8 bytes — identical to the proven `[T: WireFormat]` element framing.
+     */
+    fun encodeStrings(value: List<String>): ByteArray =
+        encode(value) { element, writer -> writer.writeBytes(element.toByteArray(Charsets.UTF_8)) }
 }
