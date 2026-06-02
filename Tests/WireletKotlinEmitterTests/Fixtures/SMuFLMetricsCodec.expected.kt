@@ -26,7 +26,7 @@ public object SMuFLMetricsCodec {
         w.writeF64(value.referenceSize)
         w.writeTag(4, WireType.LENGTH_DELIMITED)
         w.writeLengthPrefixed {
-            for (e in value.entries) this.writeLengthPrefixed { SMuFLMetricsEntryCodec.encodePayload(e, this) }
+            for (e in value.entries) if (SMuFLMetricsEntryCodec.WIRE_TYPE == WireType.LENGTH_DELIMITED) this.writeLengthPrefixed { SMuFLMetricsEntryCodec.encodePayload(e, this) } else SMuFLMetricsEntryCodec.encodePayload(e, this)
         }
     }
 
@@ -46,7 +46,7 @@ public object SMuFLMetricsCodec {
                 1 -> _magic = r.readVarint().toUInt()
                 2 -> _version = r.readVarint().toUInt()
                 3 -> _referenceSize = r.readF64()
-                4 -> _entries = r.readLengthPrefixed { val list = ArrayList<SMuFLMetricsEntry>(); while (it.remaining > 0) list.add(it.readLengthPrefixed { SMuFLMetricsEntryCodec.decodePayload(it) }); list }
+                4 -> _entries = r.readLengthPrefixed { val list = ArrayList<SMuFLMetricsEntry>(); while (it.remaining > 0) list.add((if (SMuFLMetricsEntryCodec.WIRE_TYPE == WireType.LENGTH_DELIMITED) it.readLengthPrefixed { SMuFLMetricsEntryCodec.decodePayload(it) } else SMuFLMetricsEntryCodec.decodePayload(it))); list }
                 else -> r.skipUnknownField(wt)
             }
         }

@@ -174,11 +174,18 @@ enum StructEmitter {
             return dictionaryWrite(keyType: k, valueType: v, valueExpr: valueExpr, writerName: writerName, transform: transform)
         }
         let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
-        // Nested @WireFormat user types are length-delimited on the wire.
-        // Wrap their payload in a length prefix so the parent decoder can
-        // skip / slice them by tag — symmetric with the Swift macro's
-        // `value.encode(into:)` emission.
-        return ["\(writerName).writeLengthPrefixed { \(codec).encodePayload(\(valueExpr), this) }"]
+        // A nested user type frames itself per its own wire type, mirroring
+        // the Swift macro's `value.encode(into:)`: a length-delimited type
+        // (struct / choice) gets a length prefix the parent decoder can slice
+        // by tag, while a scalar type — a `@WireFormatEnum`, whose `WIRE_TYPE`
+        // is `VARINT` — is written bare, exactly as the Swift side emits it.
+        // Branch on the codec's `WIRE_TYPE` constant so a nested enum field
+        // stays byte-compatible with Swift (a bare varint, not length-prefixed).
+        return [
+            "if (\(codec).WIRE_TYPE == WireType.LENGTH_DELIMITED) "
+                + "\(writerName).writeLengthPrefixed { \(codec).encodePayload(\(valueExpr), this) } "
+                + "else \(codec).encodePayload(\(valueExpr), \(writerName))",
+        ]
     }
 
     /// Returns a Kotlin expression that reads a value of `typeText` from
@@ -198,9 +205,12 @@ enum StructEmitter {
             return dictionaryReadExpr(keyType: k, valueType: v, readerName: readerName, transform: transform)
         }
         let codec = transform.apply(to: KotlinTypeMap.simpleName(of: typeText)) + "Codec"
-        // Symmetric with the length-prefixed write — slice the nested
-        // record before decoding its payload.
-        return "\(readerName).readLengthPrefixed { \(codec).decodePayload(it) }"
+        // Symmetric with `payloadWrite`: slice a length-delimited record
+        // before decoding its payload; read a scalar type (e.g. a nested
+        // `@WireFormatEnum`, `WIRE_TYPE == VARINT`) directly.
+        return "(if (\(codec).WIRE_TYPE == WireType.LENGTH_DELIMITED) "
+            + "\(readerName).readLengthPrefixed { \(codec).decodePayload(it) } "
+            + "else \(codec).decodePayload(\(readerName)))"
     }
 
     /// Returns the `WireType.<NAME>` reference to use in a `writeTag` call
