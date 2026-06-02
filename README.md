@@ -10,25 +10,24 @@ byte-identical encoders and decoders on both sides of the wire for free.
 > external CLI) from a single Swift source-of-truth declaration.
 > Different problem, different mechanism.
 
-**Status (2026-06-02):** pre-alpha, private repo. Phase 0-5 of the
-extraction roadmap is shipped — runtime, macros, Kotlin emitter, Gradle
-plugin, the Observable bridge (`@WireletObservable @Observable` →
-Kotlin `ViewModel<StateFlow>` via JNI), and the GitHub Actions publish
-pipeline are all green. Tags `phase-1-complete` through
-`phase-5-complete` are pinned on `main`; `v0.1.0-alpha.1`,
-`v0.1.0-alpha.2`, `v0.2.0`, `v0.2.1`, and `v0.2.2` are published to
-GitHub Packages. The Provided bridge (`@WireletProvided` — Swift →
-Kotlin service calls over JNI) is implemented and device-validated on
-branch `provided-bridge`; it is not yet merged to `main` or tagged.
+**Status (2026-06-02):** pre-alpha, private repo. The extraction roadmap
+(runtime, macros, Kotlin emitter, Gradle plugin) plus both bridges are
+shipped and green — the Observable bridge (`@WireletObservable
+@Observable` → Kotlin `ViewModel<StateFlow>` via JNI) and the Provided
+bridge (`@WireletProvided` — Swift calls into a Kotlin-implemented
+service over JNI: Swift proxy + Kotlin interface/adapter + constructor
+injection, device-validated on a Pixel 8a). The GitHub Actions publish
+pipeline is green. `v0.1.0-alpha.1` through `v0.2.2` and `v0.3.0` (the
+Provided bridge release) are published to GitHub Packages.
 
 Pinned coordinates:
 
 | Surface | Identifier |
 |---|---|
-| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "cd0d148e9d4dddad1c6afc47d5ef0a8d6f4a4a13")` (= `v0.2.2`) |
-| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.2.2` |
-| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.2.2` |
-| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.2.2"` |
+| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "05a5a62b4b0ee79a333711d1b7c31d3876fa2e64")` (= `v0.3.0`) |
+| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.3.0` |
+| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.3.0` |
+| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.3.0"` |
 
 Reading Maven artifacts requires authenticating against
 `maven.pkg.github.com/jiyimeta/swift-wirelet` with a classic GitHub
