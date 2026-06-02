@@ -1,33 +1,32 @@
 package io.github.jiyimeta.observablecounter
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.github.jiyimeta.observablecounter.generated.TodoListVMViewModel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Drives a Swift -> Kotlin round trip through the generalized JObject:
- * Swift adds two TodoItems and removes one via the Kotlin adapter, then
- * reads the list back and returns its count. Proves jbyteArray-arg,
- * jint-arg, and jbyteArray-return marshaling across the boundary.
+ * Exercises the @WireletProvided injection end to end: a Kotlin TodoStore
+ * impl is injected via create(store=), the Swift TodoListVM drives it
+ * through the generated proxy/adapter, and the observable StateFlow
+ * reflects the writes that went through the Kotlin store.
  */
 @RunWith(AndroidJUnit4::class)
 class ProvidedRoundTripInstrumentedTest {
-
     @Test
-    fun swiftDrivesKotlinStore() {
-        val impl = InMemoryTodoStore()
-        val adapter = TodoStoreNativeAdapter(impl)
+    fun swiftDrivesInjectedKotlinStore() = runBlocking {
+        val store = InMemoryTodoStore()
+        val vm = TodoListVMViewModel.create(store = store)
 
-        val countFromSwift = StoreProbe.nativeRoundTrip(adapter)
+        vm.add(TodoItem(id = 1, title = "from-ui-1", done = false))
+        vm.add(TodoItem(id = 2, title = "from-ui-2", done = true))
 
-        // Swift's loadAll() decoded Kotlin's loadAllWire() bytes: added 2, removed 1 -> 1.
-        assertEquals(1, countFromSwift)
-
-        // Swift's addWire/removeWire arg marshaling landed on the Kotlin impl.
-        assertEquals(1, impl.items.size)
-        assertEquals(2, impl.items[0].id)
-        assertEquals("from-swift-2", impl.items[0].title)
-        assertEquals(true, impl.items[0].done)
+        // Swift add() wrote through store.add(); items reflects store.loadAll().
+        val items = vm.items.first { it.size == 2 }
+        assertEquals(2, items.size)
+        assertEquals("from-ui-2", items[1].title)
     }
 }

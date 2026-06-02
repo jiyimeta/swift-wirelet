@@ -20,7 +20,7 @@ private object ViewModelFactory : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TodoListVMViewModel::class.java)) {
-            return TodoListVMViewModel.create() as T
+            return TodoListVMViewModel.create(store = InMemoryTodoStore()) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: $modelClass")
     }

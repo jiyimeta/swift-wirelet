@@ -19,7 +19,7 @@ class TodoBurstInstrumentedTest {
 
     @Test
     fun addBurstReachesExpectedSnapshot() = runBlocking {
-        val vm = TodoListVMViewModel.create()
+        val vm = TodoListVMViewModel.create(store = InMemoryTodoStore())
         repeat(10) { i ->
             vm.add(TodoItem(id = i + 1, title = "task #${i + 1}", done = false))
         }

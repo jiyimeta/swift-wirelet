@@ -61,6 +61,17 @@ wirelet {
             modelPackage.set("io.github.jiyimeta.observablecounter")
             codecPackage.set("io.github.jiyimeta.observablecounter")
             libraryName.set("ObservableCounterJNI")
+            providedAdapterPackage.set("io.github.jiyimeta.observablecounter")
+        }
+    }
+
+    provided {
+        register("main") {
+            schemaPaths.from(file("../../swift/Sources/ObservableCounterJNI"))
+            interfacePackage.set("io.github.jiyimeta.observablecounter")
+            adapterPackage.set("io.github.jiyimeta.observablecounter")
+            modelPackage.set("io.github.jiyimeta.observablecounter")
+            codecPackage.set("io.github.jiyimeta.observablecounter")
         }
     }
 }
