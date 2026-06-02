@@ -17,17 +17,19 @@ shipped and green — the Observable bridge (`@WireletObservable
 bridge (`@WireletProvided` — Swift calls into a Kotlin-implemented
 service over JNI: Swift proxy + Kotlin interface/adapter + constructor
 injection, device-validated on a Pixel 8a). The GitHub Actions publish
-pipeline is green. `v0.1.0-alpha.1` through `v0.2.2` and `v0.3.0` (the
-Provided bridge release) are published to GitHub Packages.
+pipeline is green. `v0.1.0-alpha.1` through `v0.2.2`, `v0.3.0` (the
+Provided bridge release), and `v0.3.2` (`[String]` method-argument
+support across the Observable bridge, device-validated on a Pixel 8a)
+are published to GitHub Packages.
 
 Pinned coordinates:
 
 | Surface | Identifier |
 |---|---|
-| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "05a5a62b4b0ee79a333711d1b7c31d3876fa2e64")` (= `v0.3.0`) |
-| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.3.0` |
-| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.3.0` |
-| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.3.0"` |
+| SwiftPM dep | `.package(url: "git@github.com:jiyimeta/swift-wirelet.git", revision: "24e9b4bd216be72539fbf965ed715d301ae3f012")` (= `v0.3.2`) |
+| Maven runtime | `io.github.jiyimeta:wirelet-runtime:0.3.2` |
+| Maven observable runtime | `io.github.jiyimeta:wirelet-observable-runtime:0.3.2` |
+| Gradle plugin | `id("io.github.jiyimeta.wirelet") version "0.3.2"` |
 
 Reading Maven artifacts requires authenticating against
 `maven.pkg.github.com/jiyimeta/swift-wirelet` with a classic GitHub
