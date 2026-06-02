@@ -223,6 +223,10 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "WireletProvidedTests",
+            dependencies: ["WireletProvided", "Wirelet"]
+        ),
+        .testTarget(
             name: "WireletObservableSchemaTests",
             dependencies: ["WireletObservableSchema"],
             resources: [.copy("Fixtures")]
