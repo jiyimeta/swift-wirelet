@@ -183,6 +183,92 @@ See [`examples/observable-counter/`](../examples/observable-counter/)
 for a complete Compose app that consumes the generated view-model
 against a Swift `.so` cross-compiled to Android via the Swift Android SDK.
 
+## Provided services
+
+The `io.github.jiyimeta.wirelet` plugin also grows a `provided { ... }`
+block that generates the Kotlin side of a `@WireletProvided` protocol:
+a friendly `interface <Service>` the app implements in Kotlin, plus a
+`<Service>NativeAdapter` whose byte-level wire methods the Swift
+`<Service>WireletProxy` calls over JNI.
+
+```kotlin
+wirelet {
+    provided {
+        register("main") {
+            schemaPaths.from(file("../shared-schema/Sources"))
+            interfacePackage.set("com.example.app.provided")
+            adapterPackage.set("com.example.app.provided")
+            modelPackage.set("com.example.app.model")
+            codecPackage.set("com.example.app.codec")
+            runtimePackage.set("io.github.jiyimeta.wirelet.observable")
+        }
+    }
+}
+```
+
+Properties:
+
+| Property | Required | Description |
+|---|---|---|
+| `schemaPaths` | yes | Directories scanned for `@WireletProvided` Swift protocol declarations (v1: exactly one entry). |
+| `interfacePackage` | yes | Package the generated `<Service>.kt` friendly interface lands under. |
+| `adapterPackage` | yes | Package the generated `<Service>NativeAdapter.kt` lands under (collocated with the interface in v1; kept separate for forward compatibility). |
+| `modelPackage` | yes* | Package containing user-authored model data classes (`TodoItem`, etc.). Required when any service method uses `@WireFormat` struct types. |
+| `codecPackage` | yes* | Package containing the per-`@WireFormat` codec objects. Required when any service method uses `@WireFormat` struct types. |
+| `runtimePackage` | no | Package containing `WireletList` and related runtime helpers. Defaults to `io.github.jiyimeta.wirelet.observable`. |
+
+The plugin registers a `generateWireletProvidedInterfaces<Name>` task
+per source-set entry and wires it into the Kotlin compilation. Generated
+files land under `build/generated/wirelet/provided/<name>/kotlin/...`.
+
+### Injecting a provided service into an observable view-model
+
+When a `@WireletObservable` class has an `@WireletProvided`-typed init
+parameter, add `providedAdapterPackage` to the matching `observable { }`
+source set. The codegen then adds a `create(service…)` factory to the
+generated `ViewModel` that wraps your Kotlin implementation in the
+adapter before constructing the Swift instance:
+
+```kotlin
+wirelet {
+    observable {
+        register("main") {
+            schemaPaths.from(file("../shared-schema/Sources"))
+            viewModelPackage.set("com.example.app.viewmodels")
+            modelPackage.set("com.example.app.model")
+            codecPackage.set("com.example.app.codec")
+            libraryName.set("MyAppJNI")
+            // Required when any view-model has injected @WireletProvided parameters:
+            providedAdapterPackage.set("com.example.app.provided")
+        }
+    }
+}
+```
+
+Use site — your app instantiates a `ViewModel` by passing a Kotlin
+implementation of the generated interface directly:
+
+```kotlin
+class RoomTodoStore : TodoStore { /* Room / database implementation */ }
+
+val vm = TodoListVMViewModel.create(store = RoomTodoStore())
+```
+
+The generated `create(store:)` factory wraps `RoomTodoStore` in a
+`TodoStoreNativeAdapter` and passes the adapter pointer to the Swift
+`nativeNew` bridge, which constructs the `TodoListVM` Swift instance
+with the corresponding `TodoStoreWireletProxy`. All method calls from
+the Swift `store` property then cross JNI to the Kotlin implementation.
+
+v1 constraints: service methods must be synchronous; an injected
+initializer accepts only `@WireletProvided` service parameters (no
+mixed init parameters); optional parameter and return types are deferred
+to a future release.
+
+See [`examples/observable-counter/`](../examples/observable-counter/)
+for a working end-to-end example demonstrating both the Observable and
+Provided bridges together.
+
 ## Next steps
 
 - [wire-format-spec.md](wire-format-spec.md) — the byte layout your

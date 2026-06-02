@@ -10,14 +10,16 @@ byte-identical encoders and decoders on both sides of the wire for free.
 > external CLI) from a single Swift source-of-truth declaration.
 > Different problem, different mechanism.
 
-**Status (2026-06-01):** pre-alpha, private repo. Phase 0-5 of the
+**Status (2026-06-02):** pre-alpha, private repo. Phase 0-5 of the
 extraction roadmap is shipped — runtime, macros, Kotlin emitter, Gradle
 plugin, the Observable bridge (`@WireletObservable @Observable` →
 Kotlin `ViewModel<StateFlow>` via JNI), and the GitHub Actions publish
 pipeline are all green. Tags `phase-1-complete` through
 `phase-5-complete` are pinned on `main`; `v0.1.0-alpha.1`,
 `v0.1.0-alpha.2`, `v0.2.0`, `v0.2.1`, and `v0.2.2` are published to
-GitHub Packages.
+GitHub Packages. The Provided bridge (`@WireletProvided` — Swift →
+Kotlin service calls over JNI) is implemented and device-validated on
+branch `provided-bridge`; it is not yet merged to `main` or tagged.
 
 Pinned coordinates:
 
@@ -158,6 +160,80 @@ the full DSL and
 [`examples/observable-counter/`](examples/observable-counter/) for a
 working Compose app.
 
+## Provided bridge
+
+`@WireletProvided` is the mirror of `@WireletObservable`: it lets Swift
+code (running inside an Android JNI `.so`) call into a
+**Kotlin-implemented** service over JNI, with value-typed arguments and
+return values marshaled through the same `@WireFormat` TLV codecs. A
+`@WireletObservable` class can take `@WireletProvided`-typed init
+parameters; the generated Kotlin `create(service:)` factory accepts the
+Kotlin implementation, and the Swift bridge wraps it into a generated
+`<Service>WireletProxy` before constructing the observable instance.
+On Apple builds `@WireletProvided` is inert — it expands to a plain
+Swift protocol — so you can inject a Swift fake for host unit tests
+without any JNI involvement.
+
+```swift
+import Wirelet
+import WireletProvided
+
+@WireletProvided
+public protocol TodoStore {
+    func loadAll() -> [TodoItem]
+    func add(_ item: TodoItem)
+    func remove(_ id: Int32)
+}
+
+@WireletObservable @Observable
+public final class TodoListVM {
+    @ObservationIgnored private let store: TodoStore
+    public var items: [TodoItem] = []
+    public init(store: TodoStore) {          // injected Kotlin service
+        self.store = store
+        self.items = store.loadAll()
+    }
+    @WireletExpose public func add(_ item: TodoItem) {
+        store.add(item); items = store.loadAll()
+    }
+}
+```
+
+```kotlin
+// Generated: friendly interface + native adapter.
+interface TodoStore { fun loadAll(): List<TodoItem>; fun add(item: TodoItem); fun remove(id: Int) }
+class TodoStoreNativeAdapter(impl: TodoStore) { /* byte-level wire methods the Swift proxy calls */ }
+
+// App implements the friendly interface and injects it:
+class RoomTodoStore : TodoStore { /* … */ }
+val vm = TodoListVMViewModel.create(store = RoomTodoStore())
+```
+
+What gets generated:
+
+- **Swift side** (SwiftPM `WireletProvidedBridges` build-tool plugin,
+  via `emit-wirelet-provided-swift-bridges`): a `<Service>WireletProxy`
+  `final class` per `@WireletProvided` protocol that forwards each method
+  across JNI; and, for an injected `@WireletObservable` initializer, the
+  `nativeNew(adapter…)` bridge wraps each Kotlin adapter into its proxy
+  before constructing the instance.
+- **Kotlin side** (Gradle task, via `emit-wirelet-provided`): a friendly
+  `interface <Service>` + a `<Service>NativeAdapter` exposing byte-level
+  wire methods the Swift proxy targets; the injected ViewModel gains
+  `create(service…)` + an adapter-typed `nativeNew`.
+
+Wire it in by applying the `io.github.jiyimeta.wirelet` Gradle plugin
+and adding a `provided { … }` block (plus `providedAdapterPackage` on
+the `observable { }` block when injecting a service) — see
+[`docs/getting-started-kotlin.md`](docs/getting-started-kotlin.md) for
+the full DSL and
+[`examples/observable-counter/`](examples/observable-counter/) for a
+working end-to-end example that demonstrates both bridges together.
+
+v1 constraints: methods must be synchronous; an injected initializer
+accepts only `@WireletProvided` service parameters; optional return
+types and optional parameters are deferred to a future release.
+
 ## Repository layout
 
 | Path | What |
@@ -173,8 +249,9 @@ working Compose app.
 | `kotlin/conformance-tests/` | Cross-language fixture suite (Swift writes `.bin`, Kotlin decodes & re-encodes, asserts byte-equal). |
 | `kotlin/observable-runtime/` | Kotlin `:observable-runtime` module — `io.github.jiyimeta:wirelet-observable-runtime` Maven artifact (`WireletList`, `ViewModel` helpers). |
 | `Sources/WireletObservable*` + `Plugins/WireletObservableBridges/` | `@WireletObservable @Observable` Swift class → Kotlin `ViewModel<StateFlow>` bridge — JNI bridges produced by a SwiftPM build tool plugin, view-models by `emit-wirelet-observable`. |
+| `Sources/WireletProvided*` + `Plugins/WireletProvidedBridges/` | `@WireletProvided` Swift protocol → Kotlin-implemented service callable from Swift over JNI — Swift proxy produced by a SwiftPM build tool plugin, Kotlin interface/adapter by `emit-wirelet-provided`. |
 | `examples/cross-roundtrip/` | End-to-end smoke (Swift encoder → JVM decoder via the runtime). |
-| `examples/observable-counter/` | Observable bridge demo — Swift `@WireletObservable` class cross-compiled to a JNI `.so`, consumed by an Android Compose app via `StateFlow`. See [Phase 4 plan](docs/superpowers/plans/2026-05-29-wirelet-observable-bridge-phase-4.md). |
+| `examples/observable-counter/` | Observable + Provided bridge demo — Swift `@WireletObservable` class cross-compiled to a JNI `.so`, consumed by an Android Compose app via `StateFlow`; also demonstrates the Provided bridge with a Swift `TodoListVM` injected with a Kotlin-implemented `TodoStore`. See [Phase 4 plan](docs/superpowers/plans/2026-05-29-wirelet-observable-bridge-phase-4.md). |
 | `docs/` | Wire-format spec, schema-evolution rules, language-specific getting-started guides. |
 
 ## Getting started
