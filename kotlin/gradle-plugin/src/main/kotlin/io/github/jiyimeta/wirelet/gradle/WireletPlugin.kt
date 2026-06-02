@@ -41,6 +41,7 @@ class WireletPlugin : Plugin<Project> {
             )
             libraryName.set(entry.libraryName)
             includePackages.set(entry.includePackages)
+            providedAdapterPackage.set(entry.providedAdapterPackage)
             outputDir.set(
                 project.layout.buildDirectory.dir(
                     "generated/wirelet/observable/${entry.name}/kotlin",

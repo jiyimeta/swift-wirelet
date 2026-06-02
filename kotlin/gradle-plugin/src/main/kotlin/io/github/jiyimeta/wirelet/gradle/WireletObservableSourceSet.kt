@@ -69,4 +69,17 @@ abstract class WireletObservableSourceSet @Inject constructor(
      * the `--include-package` CLI flag.
      */
     abstract val includePackages: SetProperty<String>
+
+    /**
+     * Kotlin package the `@WireletProvided` service interfaces and their
+     * generated `<Service>NativeAdapter` classes live under. Required when
+     * any `@WireletObservable` class has an injected initializer
+     * (`init(store: TodoStore)`): the generated view-model factory imports
+     * `<providedAdapterPackage>.<Service>` and
+     * `<providedAdapterPackage>.<Service>NativeAdapter`, and the JNI sidecar
+     * builds the adapter-typed `nativeNew` descriptor from it. Optional —
+     * leave unset when no view-model has injected init parameters; the JSON
+     * key is then omitted and the codegen config decodes it as nil.
+     */
+    abstract val providedAdapterPackage: Property<String>
 }

@@ -43,4 +43,40 @@ private func makeConfig() -> ObservableCodegenConfig {
         #expect(setDone.signature == "(JIZ)V")
         #expect(render.signature == "(JI[B)V")
     }
+
+    @Test func injectedNativeNewDescriptor() throws {
+        let vm = ObservableViewModel(
+            name: "TodoListVM",
+            properties: [],
+            methods: [],
+            initParameters: [
+                ObservableInitParameter(label: "store", internalName: nil, typeText: "TodoStore"),
+            ]
+        )
+        var config = makeConfig()
+        config.providedAdapterPackage = "com.example.iface"
+        let sidecar = JNISidecarBuilder.build(
+            schema: ObservableSchema(viewModels: [vm]), config: config
+        )
+        let registration = try #require(sidecar.viewModels.first)
+        let nativeNew = try #require(registration.nativeMethods.first { $0.name == "nativeNew" })
+        #expect(nativeNew.signature == "(Lcom/example/iface/TodoStoreNativeAdapter;)J")
+        #expect(nativeNew.cdeclSymbol == "WireletObservable_TodoListVM_new")
+    }
+
+    @Test func noArgNativeNewDescriptorUnchanged() throws {
+        let vm = ObservableViewModel(
+            name: "TodoListVM",
+            properties: [],
+            methods: [],
+            initParameters: []
+        )
+        let sidecar = JNISidecarBuilder.build(
+            schema: ObservableSchema(viewModels: [vm]), config: makeConfig()
+        )
+        let registration = try #require(sidecar.viewModels.first)
+        let nativeNew = try #require(registration.nativeMethods.first { $0.name == "nativeNew" })
+        #expect(nativeNew.signature == "()J")
+        #expect(nativeNew.cdeclSymbol == "WireletObservable_TodoListVM_new")
+    }
 }

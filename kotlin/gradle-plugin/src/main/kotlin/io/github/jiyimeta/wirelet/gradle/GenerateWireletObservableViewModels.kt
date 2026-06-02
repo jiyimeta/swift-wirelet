@@ -88,6 +88,16 @@ abstract class GenerateWireletObservableViewModels @Inject constructor(
     @get:Input abstract val libraryName: Property<String>
     @get:Input abstract val includePackages: SetProperty<String>
 
+    /**
+     * Package of the `@WireletProvided` service interfaces + their generated
+     * `<Service>NativeAdapter` classes. Only required when a view-model has an
+     * injected initializer; included in the codegen JSON only when present so
+     * an absent value decodes to nil on the Swift side.
+     */
+    @get:Input
+    @get:Optional
+    abstract val providedAdapterPackage: Property<String>
+
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
     /**
@@ -162,13 +172,18 @@ abstract class GenerateWireletObservableViewModels @Inject constructor(
         val codec = codecPackage.get()
         val rt = runtimePackage.get()
         val lib = libraryName.get()
+        // Emit providedAdapterPackage only when set so the key is absent
+        // (and decodes to nil) when no view-model has an injected init.
+        val providedLine = providedAdapterPackage.orNull?.let {
+            "\n              \"providedAdapterPackage\": ${quote(it)},"
+        } ?: ""
         return """
             {
               "viewModelPackage": ${quote(vm)},
               "modelPackage": ${quote(model)},
               "codecPackage": ${quote(codec)},
               "runtimePackage": ${quote(rt)},
-              "libraryName": ${quote(lib)},
+              "libraryName": ${quote(lib)},$providedLine
               "nameTransform": { "identity": true }
             }
         """.trimIndent()

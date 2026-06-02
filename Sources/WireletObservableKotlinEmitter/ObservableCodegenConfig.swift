@@ -28,6 +28,13 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
     /// (e.g. `stripSuffix: "VM"` so `TodoListVM` → `TodoListViewModel`).
     /// Defaults to `identity` per the existing wireformat config.
     public var nameTransform: NameTransform
+    /// Kotlin package the `@WireletProvided` service interfaces and their
+    /// generated `<Service>NativeAdapter` classes live under. Required when
+    /// any `@WireletObservable` class has an injected initializer (so the
+    /// view-model factory can wrap each provided service in its adapter and
+    /// the JNI sidecar can build the adapter-typed `nativeNew` descriptor).
+    /// `nil` when no view-model has injected init parameters.
+    public var providedAdapterPackage: String?
 
     public init(
         viewModelPackage: String,
@@ -35,7 +42,8 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
         codecPackage: String,
         runtimePackage: String = "io.github.jiyimeta.wirelet.observable",
         libraryName: String,
-        nameTransform: NameTransform = .identity
+        nameTransform: NameTransform = .identity,
+        providedAdapterPackage: String? = nil
     ) {
         self.viewModelPackage = viewModelPackage
         self.modelPackage = modelPackage
@@ -43,6 +51,7 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
         self.runtimePackage = runtimePackage
         self.libraryName = libraryName
         self.nameTransform = nameTransform
+        self.providedAdapterPackage = providedAdapterPackage
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -52,6 +61,7 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
         case runtimePackage
         case libraryName
         case nameTransform
+        case providedAdapterPackage
     }
 
     public init(from decoder: Decoder) throws {
@@ -64,5 +74,9 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
         libraryName = try c.decode(String.self, forKey: .libraryName)
         nameTransform = try c.decodeIfPresent(NameTransform.self, forKey: .nameTransform)
             ?? .identity
+        // Absent JSON key → nil (only set when a view-model has an injected init).
+        providedAdapterPackage = try c.decodeIfPresent(
+            String.self, forKey: .providedAdapterPackage
+        )
     }
 }

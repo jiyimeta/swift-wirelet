@@ -24,8 +24,11 @@ enum ViewModelEmitter {
             acc.formUnion(r.extraImports)
         }
 
+        let factory = injectedFactory(vm: vm, className: className, config: config)
+
         let imports = collectImports(vm: vm, plans: plans, config: config,
                                      extraMethodImports: methodImports)
+            .union(factory.imports)
         let importsBlock = imports.sorted().map { "import \($0)" }.joined(separator: "\n")
 
         let stateFlowMembers = plans.map { prop, plan in
@@ -72,16 +75,79 @@ enum ViewModelEmitter {
             companion object {
                 init { System.loadLibrary("\(config.libraryName)") }
 
-                fun create(): \(className) =
-                    \(className)(nativeNew())
-
-                @JvmStatic
-                private external fun nativeNew(): Long
+        \(factory.body)
             }
         }
 
         """
         return KotlinFile(relativePath: path, content: content)
+    }
+
+    // MARK: - Constructor factory
+
+    /// Renders the companion-object `create(...)` factory + its
+    /// `private external fun nativeNew(...)` declaration, plus the imports
+    /// for any provided-service adapter types referenced.
+    ///
+    /// No-arg init (`vm.initParameters` empty): emits today's
+    /// `create(): X = X(nativeNew())` + `nativeNew(): Long` unchanged.
+    ///
+    /// Injected init: each parameter is a `@WireletProvided` service. The
+    /// factory takes the friendly service-interface type and wraps it in the
+    /// generated `<Service>NativeAdapter` before passing it to `nativeNew`.
+    private static func injectedFactory(
+        vm: ObservableViewModel,
+        className: String,
+        config: ObservableCodegenConfig
+    ) -> (body: String, imports: Set<String>) {
+        guard !vm.initParameters.isEmpty else {
+            let body = """
+                    fun create(): \(className) =
+                        \(className)(nativeNew())
+
+                    @JvmStatic
+                    private external fun nativeNew(): Long
+            """
+            return (body, [])
+        }
+
+        var createParams: [String] = []
+        var adapterWraps: [String] = []
+        var nativeParams: [String] = []
+        var imports: Set<String> = []
+
+        for param in vm.initParameters {
+            let paramName = factoryParamName(param)
+            let serviceType = param.typeText
+            let adapterType = "\(serviceType)NativeAdapter"
+            createParams.append("\(paramName): \(serviceType)")
+            adapterWraps.append("\(adapterType)(\(paramName))")
+            nativeParams.append("\(paramName)Adapter: \(adapterType)")
+            // Qualify imports by providedAdapterPackage when set. When nil
+            // (colocated-package fallback) emit the type names unqualified and
+            // add no import — the generated file is expected to live in the
+            // same package as the service interface + adapter.
+            if let pkg = config.providedAdapterPackage {
+                imports.insert("\(pkg).\(serviceType)")
+                imports.insert("\(pkg).\(adapterType)")
+            }
+        }
+
+        let body = """
+                fun create(\(createParams.joined(separator: ", "))): \(className) =
+                    \(className)(nativeNew(\(adapterWraps.joined(separator: ", "))))
+
+                @JvmStatic
+                private external fun nativeNew(\(nativeParams.joined(separator: ", "))): Long
+        """
+        return (body, imports)
+    }
+
+    /// The friendly factory parameter name: the internal name when present,
+    /// else the external label, with a leading underscore dropped.
+    private static func factoryParamName(_ param: ObservableInitParameter) -> String {
+        let name = param.internalName ?? param.label
+        return name.hasPrefix("_") ? String(name.dropFirst()) : name
     }
 
     // MARK: - Imports

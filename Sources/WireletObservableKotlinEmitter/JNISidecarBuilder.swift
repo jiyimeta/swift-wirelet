@@ -81,7 +81,7 @@ public enum JNISidecarBuilder {
         // 1. constructor (companion object static method — still uses class lookup)
         methods.append(JNISidecarNativeMethod(
             name: "nativeNew",
-            signature: "()J",
+            signature: nativeNewSignature(vm: vm, config: config),
             cdeclSymbol: "WireletObservable_\(vm.name)_new"
         ))
 
@@ -133,6 +133,39 @@ public enum JNISidecarBuilder {
     }
 
     // MARK: - JNI signature derivation
+
+    /// `nativeNew` descriptor.
+    ///
+    /// No-arg init (`vm.initParameters` empty): `()J` — unchanged.
+    ///
+    /// Injected init: one object descriptor per provided service, in order:
+    /// `(L<pkgSlashes>/<Service>NativeAdapter;…)J`, where `<pkgSlashes>` is
+    /// `config.providedAdapterPackage` with `.` → `/`.
+    ///
+    /// `providedAdapterPackage` is REQUIRED when there are injected init
+    /// parameters: a JNI object descriptor must carry the fully-qualified
+    /// internal class name, which is impossible to build without the package.
+    /// The Gradle DSL emits the key whenever injection is in play, and tests
+    /// always set it; a nil value here is a hard misconfiguration, so we
+    /// force-unwrap to fail loudly rather than emit an invalid descriptor.
+    private static func nativeNewSignature(
+        vm: ObservableViewModel,
+        config: ObservableCodegenConfig
+    ) -> String {
+        guard !vm.initParameters.isEmpty else { return "()J" }
+        guard let pkg = config.providedAdapterPackage else {
+            preconditionFailure(
+                "providedAdapterPackage is required when a @WireletObservable "
+                    + "class has injected init parameters (view-model '\(vm.name)'). "
+                    + "Set it in the observable Gradle DSL / codegen config."
+            )
+        }
+        let pkgSlashes = pkg.replacingOccurrences(of: ".", with: "/")
+        let params = vm.initParameters
+            .map { "L\(pkgSlashes)/\($0.typeText)NativeAdapter;" }
+            .joined()
+        return "(\(params))J"
+    }
 
     /// `(JLjava/lang/Runnable;)<returnDescriptor>` where returnDescriptor
     /// comes from the Kotlin track return type.
