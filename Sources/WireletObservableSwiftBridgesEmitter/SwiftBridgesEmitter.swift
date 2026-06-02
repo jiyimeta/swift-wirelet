@@ -59,7 +59,10 @@ public struct SwiftBridgesEmitter {
         }
 
         // Constructor and destructor
-        bridges.append(ConstructorEmitter.renderConstructor(className: className))
+        bridges.append(ConstructorEmitter.renderConstructor(
+            className: className,
+            initParameters: viewModel.initParameters
+        ))
         bridges.append(ConstructorEmitter.renderDestructor(className: className))
 
         // Per-property setter bridges (only for var, not let)

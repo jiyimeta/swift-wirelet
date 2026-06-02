@@ -382,6 +382,53 @@ struct SwiftBridgesEmitterTests {
         #expect(bridges.contains("me.setDone(decoded0, decoded1)"))
     }
 
+    // MARK: - Injected constructor bridge
+
+    @Test func injectedConstructorBridge() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+        @WireletObservable
+        @Observable
+        final class TodoListVM {
+            @ObservationIgnored let store: TodoStore
+            public init(store: TodoStore) {
+                self.store = store
+            }
+        }
+        """
+        let url = try writeTmp(name: "TodoListVM.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        #expect(results.count == 1)
+        let (_, content) = results[0]
+        #expect(content.contains(#"@_cdecl("WireletObservable_TodoListVM_new")"#))
+        #expect(content.contains("_ arg0: jobject?"))
+        #expect(content.contains("guard let obj0 = JObject(env: env, jobject: arg0) else { return 0 }"))
+        #expect(content.contains("WireletObservableJNI.retain(TodoListVM(store: TodoStoreWireletProxy(adapter: obj0)))"))
+    }
+
+    @Test func noArgConstructorBridgeUnchanged() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+        @WireletObservable
+        @Observable
+        public final class CounterVM {
+            public var count: Int32 = 0
+            public init() {}
+        }
+        """
+        let url = try writeTmp(name: "CounterVM.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        #expect(results.count == 1)
+        let (_, content) = results[0]
+        #expect(content.contains("return WireletObservableJNI.retain(CounterVM())"))
+        // Backward-compat: the no-arg constructor bridge takes no adapter arg.
+        let newBlock = content.components(separatedBy: "_new_jni").last ?? ""
+        let constructorBlock = newBlock.components(separatedBy: "_release").first ?? ""
+        #expect(!constructorBlock.contains("arg0"))
+    }
+
     // MARK: - Global function names are class-prefixed (no collision risk)
 
     @Test func globalFunctionNamesArePrefixedWithClassName() throws {

@@ -78,6 +78,45 @@ import Testing
     ])
 }
 
+@Test func parsesInjectedInitParameters() throws {
+    let source = """
+    import Observation
+    import WireletObservable
+    @WireletObservable
+    @Observable
+    public final class TodoListVM {
+        @ObservationIgnored let store: TodoStore
+        public init(store: TodoStore) {
+            self.store = store
+        }
+    }
+    """
+    let schema = ObservableSchemaParser.parse(source: source, fileName: "TodoListVM.swift")
+
+    #expect(schema.viewModels.count == 1)
+    let vm = schema.viewModels[0]
+    #expect(vm.initParameters == [
+        ObservableInitParameter(label: "store", internalName: nil, typeText: "TodoStore"),
+    ])
+}
+
+@Test func noArgInitYieldsEmptyInitParameters() throws {
+    let source = """
+    import Observation
+    import WireletObservable
+    @WireletObservable
+    @Observable
+    public final class CounterVM {
+        public var count: Int32 = 0
+        public init() {}
+    }
+    """
+    let schema = ObservableSchemaParser.parse(source: source, fileName: "CounterVM.swift")
+
+    #expect(schema.viewModels.count == 1)
+    #expect(schema.viewModels[0].initParameters == [])
+}
+
 @Test func ignoresNonObservableDecls() throws {
     let url = try #require(Bundle.module.url(
         forResource: "MixedDecls",

@@ -29,10 +29,12 @@ final class ObservableVisitor: SyntaxVisitor {
         }
         let properties = collectProperties(of: node)
         let methods = collectExposedMethods(of: node)
+        let initParameters = collectInitParameters(of: node)
         viewModels.append(ObservableViewModel(
             name: node.name.text,
             properties: properties,
-            methods: methods
+            methods: methods,
+            initParameters: initParameters
         ))
         return .visitChildren
     }
@@ -92,6 +94,27 @@ final class ObservableVisitor: SyntaxVisitor {
             ))
         }
         return out
+    }
+
+    /// Captures the parameters of the class's injected initializer. v1: a
+    /// single injected init. If several inits exist, the first one with a
+    /// non-empty parameter clause wins; if none has parameters (only `init()`
+    /// or no explicit init), returns an empty array. Raw capture only — no
+    /// classification happens here.
+    private func collectInitParameters(of classDecl: ClassDeclSyntax) -> [ObservableInitParameter] {
+        for member in classDecl.memberBlock.members {
+            guard let initDecl = member.decl.as(InitializerDeclSyntax.self) else { continue }
+            let params = initDecl.signature.parameterClause.parameters
+            guard !params.isEmpty else { continue }
+            return params.map { param in
+                ObservableInitParameter(
+                    label: param.firstName.text,
+                    internalName: param.secondName?.text,
+                    typeText: param.type.trimmedDescription
+                )
+            }
+        }
+        return []
     }
 
     private func hasAttribute(_ list: AttributeListSyntax, named name: String) -> Bool {

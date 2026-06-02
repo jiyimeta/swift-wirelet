@@ -22,14 +22,21 @@ public struct ObservableViewModel: Equatable, Sendable {
     /// `@WireletExpose`-annotated methods in declaration order. Plain
     /// methods are excluded.
     public var methods: [ObservableMethod]
+    /// Parameters of the class's injected initializer, in declaration order.
+    /// Empty when the class has only a no-arg `init()` (or no explicit init).
+    /// v1: every parameter is a `@WireletProvided` service handle that the
+    /// generated `nativeNew` bridge wraps into a `<Type>WireletProxy`.
+    public var initParameters: [ObservableInitParameter]
     public init(
         name: String,
         properties: [ObservableProperty],
-        methods: [ObservableMethod]
+        methods: [ObservableMethod],
+        initParameters: [ObservableInitParameter] = []
     ) {
         self.name = name
         self.properties = properties
         self.methods = methods
+        self.initParameters = initParameters
     }
 }
 
@@ -112,6 +119,26 @@ public struct ObservableMethodParameter: Equatable, Sendable {
     /// `item` is the external label *and* internal name).
     public var internalName: String?
     /// Swift type text as written in source (e.g. `TodoItem`).
+    public var typeText: String
+    public init(label: String, internalName: String? = nil, typeText: String) {
+        self.label = label
+        self.internalName = internalName
+        self.typeText = typeText
+    }
+}
+
+/// One parameter of a `@WireletObservable` class's injected initializer.
+/// Same shape as `ObservableMethodParameter`. v1: each parameter is a
+/// `@WireletProvided` service handle wrapped into `<Type>WireletProxy` by
+/// the generated `nativeNew` bridge.
+public struct ObservableInitParameter: Equatable, Sendable {
+    /// The first (external) label as it appears in source. `_` is preserved
+    /// — the emitter drops the label at the call site when it is `_`.
+    public var label: String
+    /// The second (internal) name, or `nil` when the parameter has only one
+    /// name. Irrelevant at the constructor call site (which uses `label`).
+    public var internalName: String?
+    /// Swift type text as written in source (e.g. `TodoStore`).
     public var typeText: String
     public init(label: String, internalName: String? = nil, typeText: String) {
         self.label = label
