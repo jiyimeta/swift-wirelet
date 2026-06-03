@@ -382,6 +382,63 @@ struct SwiftBridgesEmitterTests {
         #expect(bridges.contains("me.setDone(decoded0, decoded1)"))
     }
 
+    /// Regression: a method with two *env-using* arguments (e.g. two Strings)
+    /// must unwrap `env`/`envValue` ONCE at the top, not re-`guard let env`
+    /// per argument. The optional `env` parameter, re-bound in the first
+    /// decode block, would otherwise be non-optional for the second — and the
+    /// second `guard let env` would fail to compile.
+    @Test func multiArgStringInvokeBridgeHoistsEnvUnwrap() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func rename(_ id: String, _ name: String) {}
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let invoke = bridges.components(separatedBy: "rename_invoke").last ?? ""
+
+        // Exactly one env unwrap for the whole method (hoisted), not one per arg.
+        #expect(invoke.components(separatedBy: "guard let env").count - 1 == 1)
+        #expect(invoke.contains("guard let env, let envValue = env.pointee else {"))
+        // Each argument still guards its own raw jstring.
+        #expect(invoke.contains("guard let raw0 = arg0 else {"))
+        #expect(invoke.contains("guard let raw1 = arg1 else {"))
+        #expect(invoke.contains("me.rename(decoded0, decoded1)"))
+    }
+
+    /// Regression: String + [String] (the shape used by Folino's
+    /// `bulkAddToPlaylist(_ playlistId: String, _ scoreIds: [String])`).
+    @Test func multiArgStringAndArrayInvokeBridgeHoistsEnvUnwrap() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func bulkAdd(_ playlistId: String, _ scoreIds: [String]) {}
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let invoke = bridges.components(separatedBy: "bulkAdd_invoke").last ?? ""
+
+        #expect(invoke.components(separatedBy: "guard let env").count - 1 == 1)
+        #expect(invoke.contains("guard let raw0 = arg0 else {"))
+        #expect(invoke.contains("guard let raw1 = arg1 else {"))
+        #expect(invoke.contains("WireFormatReader"))
+        #expect(invoke.contains("me.bulkAdd(decoded0, decoded1)"))
+    }
+
     // MARK: - Injected constructor bridge
 
     @Test func injectedConstructorBridge() throws {

@@ -46,6 +46,14 @@ enum InvokeBridgeEmitter {
             "    _ arg\(idx): \(jniParameterType(for: p.typeText))"
         }.joined(separator: ",\n")
 
+        // Unwrap `env` (and `env.pointee`) ONCE for the whole method. The JNI
+        // parameter `env` is optional, so binding it with `guard let env` inside
+        // each per-arg decode block would shadow it as non-optional for the
+        // remaining args — the second `guard let env` then fails to compile.
+        // Hoisting the unwrap here keeps `env`/`envValue` non-optional and in
+        // scope for every decode block, which then reuses them.
+        let envPreamble = envUnwrapStatement(for: params)
+
         let decodeBlocks = params.enumerated().map { idx, p in
             decodeBlock(idx: idx, param: p)
         }.joined(separator: "\n    ")
@@ -54,6 +62,8 @@ enum InvokeBridgeEmitter {
             let value = "decoded\(idx)"
             return p.label == "_" ? value : "\(p.label): \(value)"
         }.joined(separator: ", ")
+
+        let preamble = envPreamble.isEmpty ? "" : "\(envPreamble)\n    "
 
         return """
         @_cdecl("WireletObservable_\(className)_\(methodName)_invoke")
@@ -64,10 +74,49 @@ enum InvokeBridgeEmitter {
         \(paramList)
         ) {
             let me = WireletObservableJNI.unwrap(self_ptr) as \(className)
-            \(decodeBlocks)
+            \(preamble)\(decodeBlocks)
             me.\(methodName)(\(callArgs))
         }
         """
+    }
+
+    /// A single `guard` that unwraps `env` (and `envValue` when any argument
+    /// marshals a String) for the whole method, or `""` when no argument needs
+    /// the JNI environment (all primitives / bools).
+    private static func envUnwrapStatement(for params: [ObservableMethodParameter]) -> String {
+        let needsEnvValue = params.contains { usesEnvValue($0.typeText) }
+        let needsEnv = params.contains { usesEnv($0.typeText) }
+        if needsEnvValue {
+            return """
+            guard let env, let envValue = env.pointee else {
+                return
+            }
+            """
+        }
+        if needsEnv {
+            return """
+            guard let env else {
+                return
+            }
+            """
+        }
+        return ""
+    }
+
+    /// Whether the argument's decode block dereferences `env` at all.
+    private static func usesEnv(_ typeText: String) -> Bool {
+        switch InvokeArgClassifier.classify(typeText) {
+        case .primitive, .bool: return false
+        default: return true
+        }
+    }
+
+    /// Whether the argument's decode block needs `env.pointee` (String marshalling).
+    private static func usesEnvValue(_ typeText: String) -> Bool {
+        switch InvokeArgClassifier.classify(typeText) {
+        case .string, .optionalString: return true
+        default: return false
+        }
     }
 
     // MARK: - Per-arg JNI parameter type
@@ -90,6 +139,10 @@ enum InvokeBridgeEmitter {
     /// Returns a Swift statement that defines `decoded<idx>` from `arg<idx>`.
     /// For types that can fail decoding, the statement embeds `guard` clauses
     /// that early-return — so the bridge fails fast on malformed input.
+    ///
+    /// `env` and (for String marshalling) `envValue` are unwrapped once by the
+    /// method-level preamble (see `envUnwrapStatement`); these blocks reuse the
+    /// non-optional bindings rather than re-binding them per argument.
     private static func decodeBlock(idx: Int, param: ObservableMethodParameter) -> String {
         let argName = "arg\(idx)"
         let outName = "decoded\(idx)"
@@ -100,7 +153,7 @@ enum InvokeBridgeEmitter {
             return "let \(outName) = (\(argName) != 0)"
         case .string:
             return """
-            guard let env, let envValue = env.pointee, let raw\(idx) = \(argName) else {
+            guard let raw\(idx) = \(argName) else {
                 return
             }
             let cstr\(idx) = envValue.pointee.GetStringUTFChars(env, raw\(idx), nil)
@@ -112,7 +165,7 @@ enum InvokeBridgeEmitter {
             """
         case .wireFormat(let typeName):
             return """
-            guard let env, let raw\(idx) = \(argName) else {
+            guard let raw\(idx) = \(argName) else {
                 return
             }
             let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
@@ -123,7 +176,7 @@ enum InvokeBridgeEmitter {
         case .optionalPrimitive(let inner):
             return """
             let \(outName): \(inner)?
-            if let raw\(idx) = \(argName), let env {
+            if let raw\(idx) = \(argName) {
                 let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
                 \(outName) = try? \(inner)(decoding: data\(idx))
             } else {
@@ -133,7 +186,7 @@ enum InvokeBridgeEmitter {
         case .optionalString:
             return """
             let \(outName): String?
-            if let raw\(idx) = \(argName), let env, let envValue = env.pointee {
+            if let raw\(idx) = \(argName) {
                 let cstr\(idx) = envValue.pointee.GetStringUTFChars(env, raw\(idx), nil)
                 defer { envValue.pointee.ReleaseStringUTFChars(env, raw\(idx), cstr\(idx)) }
                 \(outName) = cstr\(idx).map { String(cString: $0) }
@@ -144,7 +197,7 @@ enum InvokeBridgeEmitter {
         case .optionalWireFormat(let typeName):
             return """
             let \(outName): \(typeName)?
-            if let raw\(idx) = \(argName), let env {
+            if let raw\(idx) = \(argName) {
                 let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
                 \(outName) = try? \(typeName)(decoding: data\(idx))
             } else {
@@ -153,7 +206,7 @@ enum InvokeBridgeEmitter {
             """
         case .array(let elementTypeName):
             return """
-            guard let env, let raw\(idx) = \(argName) else {
+            guard let raw\(idx) = \(argName) else {
                 return
             }
             let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
