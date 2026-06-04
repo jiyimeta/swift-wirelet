@@ -193,9 +193,17 @@ public enum JNISidecarBuilder {
             .joined()
         return JNISidecarNativeMethod(
             name: nativeName,
-            signature: "(J\(argDescriptors))V",
+            signature: "(J\(argDescriptors))\(jniReturnDescriptor(method.returnTypeText))",
             cdeclSymbol: cdecl
         )
+    }
+
+    /// JNI return descriptor for an exposed method. `nil` (a `Void` return) is `V`; any other type is classified the
+    /// same way as a method argument (`String` → `Ljava/lang/String;`, primitives → `I/J/Z/F/D`, wire / array /
+    /// optional → `[B`).
+    private static func jniReturnDescriptor(_ swiftType: String?) -> String {
+        guard let swiftType else { return "V" }
+        return jniArgDescriptor(forArgType: swiftType)
     }
 
     /// JNI type descriptor for one method-arg type (no `J` self prefix, no return type).

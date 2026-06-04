@@ -44,6 +44,38 @@ private func makeConfig() -> ObservableCodegenConfig {
         #expect(render.signature == "(JI[B)V")
     }
 
+    @Test func returnDescriptors() throws {
+        let vm = ObservableViewModel(
+            name: "Demo",
+            properties: [],
+            methods: [
+                ObservableMethod(name: "describe", parameters: [], returnTypeText: "String"),
+                ObservableMethod(name: "count", parameters: [], returnTypeText: "Int32"),
+                ObservableMethod(name: "ready", parameters: [], returnTypeText: "Bool"),
+                ObservableMethod(name: "snapshot", parameters: [], returnTypeText: "[TodoItem]"),
+                ObservableMethod(
+                    name: "export",
+                    parameters: [
+                        ObservableMethodParameter(label: "_", internalName: nil, typeText: "String"),
+                    ],
+                    returnTypeText: "String"
+                ),
+                ObservableMethod(name: "noReturn", parameters: [], returnTypeText: nil),
+            ]
+        )
+        let sidecar = JNISidecarBuilder.build(schema: ObservableSchema(viewModels: [vm]), config: makeConfig())
+        let registration = try #require(sidecar.viewModels.first)
+        func sig(_ name: String) throws -> String {
+            try #require(registration.nativeMethods.first { $0.name == name }).signature
+        }
+        #expect(try sig("nativeDescribe") == "(J)Ljava/lang/String;")
+        #expect(try sig("nativeCount") == "(J)I")
+        #expect(try sig("nativeReady") == "(J)Z")
+        #expect(try sig("nativeSnapshot") == "(J)[B")
+        #expect(try sig("nativeExport") == "(JLjava/lang/String;)Ljava/lang/String;")
+        #expect(try sig("nativeNoReturn") == "(J)V")
+    }
+
     @Test func injectedNativeNewDescriptor() throws {
         let vm = ObservableViewModel(
             name: "TodoListVM",
