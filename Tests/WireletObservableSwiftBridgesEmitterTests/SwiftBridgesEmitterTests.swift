@@ -439,6 +439,118 @@ struct SwiftBridgesEmitterTests {
         #expect(invoke.contains("me.bulkAdd(decoded0, decoded1)"))
     }
 
+    // MARK: - Return-value invoke bridges
+
+    @Test func stringReturnInvokeBridge() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func describe() -> String { "" }
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let invoke = bridges.components(separatedBy: "describe_invoke").last ?? ""
+
+        #expect(invoke.contains(") -> jstring? {"))
+        #expect(invoke.contains("guard let env, let envValue = env.pointee else {"))
+        #expect(invoke.contains("return nil"))
+        #expect(invoke.contains("me.describe()"))
+        #expect(invoke.contains("NewStringUTF"))
+    }
+
+    @Test func primitiveReturnInvokeBridge() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func count() -> Int32 { 0 }
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let invoke = bridges.components(separatedBy: "count_invoke").last ?? ""
+
+        #expect(invoke.contains(") -> jint {"))
+        #expect(invoke.contains("return jint(me.count())"))
+        // No env unwrap needed for a pure primitive return.
+        #expect(!invoke.components(separatedBy: "me.count()")[0].contains("guard let env"))
+    }
+
+    @Test func boolReturnInvokeBridge() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func ready() -> Bool { true }
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let invoke = bridges.components(separatedBy: "ready_invoke").last ?? ""
+
+        #expect(invoke.contains(") -> jboolean {"))
+        #expect(invoke.contains("(me.ready()) ? 1 : 0"))
+    }
+
+    @Test func arrayReturnInvokeBridge() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func export(_ id: String) -> [TodoItem] { [] }
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let invoke = bridges.components(separatedBy: "export_invoke").last ?? ""
+
+        #expect(invoke.contains(") -> jbyteArray? {"))
+        #expect(invoke.contains("WireletObservableJNI.encodeArray(me.export(decoded0), env: env)"))
+        #expect(invoke.contains("guard let raw0 = arg0 else {"))
+    }
+
+    @Test func voidReturnInvokeBridgeHasNoReturnClause() throws {
+        let source = """
+        import Observation
+        import WireletObservable
+
+        @WireletObservable
+        @Observable
+        public final class Demo {
+            @WireletExpose
+            public func noop() {}
+        }
+        """
+        let url = try writeTmp(name: "Demo.swift", content: source)
+        let results = try SwiftBridgesEmitter().emit(sources: [url])
+        let bridges = results.first(where: { $0.name.hasSuffix("Demo+JNIBridges.swift") })!.content
+        let beforeCall = bridges.components(separatedBy: "noop_invoke_jni(")[1].components(separatedBy: "me.noop()")[0]
+        #expect(!beforeCall.contains("->"))
+        #expect(bridges.contains("me.noop()"))
+    }
+
     // MARK: - Injected constructor bridge
 
     @Test func injectedConstructorBridge() throws {
