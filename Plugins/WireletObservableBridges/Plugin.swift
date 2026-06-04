@@ -91,6 +91,13 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
                 continue
             }
             if seenObservable {
+                // Blank lines and comments (`//`, `///`, `// swiftlint:…`) can legally sit between the
+                // `@WireletObservable` / `@Observable` attributes and the `class` keyword. Skip them rather than
+                // treating them as "unexpected" — otherwise the class is silently dropped from codegen and its
+                // `@_cdecl` bridge symbols never compile into the .so (a brutal runtime JNI_OnLoad failure).
+                if trimmed.isEmpty || trimmed.hasPrefix("//") {
+                    continue
+                }
                 if trimmed.contains("@Observable") || trimmed.contains("@_Observable") {
                     // Skip — still in the attribute block
                     continue
