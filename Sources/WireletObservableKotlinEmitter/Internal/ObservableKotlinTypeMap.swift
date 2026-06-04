@@ -202,4 +202,45 @@ enum ObservableKotlinTypeMap {
                     { name in "WireletList.encode(\(name), \(codec)::encodePayload)" })
         }
     }
+
+    // MARK: - Invoke return mapping
+
+    /// Maps a Swift `@WireletExpose` return type to its Kotlin representation:
+    /// the public return type, the `external fun` return type (the raw JNI
+    /// shape), a decode-expression factory (`$0` is the native call
+    /// expression), and the imports the decode needs. Mirrors `invokeArg`,
+    /// reusing the same decode templates the observable StateFlows use. The
+    /// caller handles a `Void` return (no return clause) before calling this.
+    static func invokeReturn(
+        forReturnType swiftType: String,
+        config: ObservableCodegenConfig
+    ) -> (kotlinType: String, externalFunType: String, decodeExpr: (String) -> String, imports: Set<String>) {
+        switch InvokeArgClassifier.classify(swiftType) {
+        case .primitive(_, let cast):
+            let kt = kotlinPrimitive(swiftType: cast)
+            return (kt, kt, { $0 }, [])
+        case .bool:
+            return ("Boolean", "Boolean", { $0 }, [])
+        case .string:
+            return ("String", "String", { $0 }, [])
+        case .wireFormat(let typeName):
+            let kt = config.nameTransform.apply(to: typeName)
+            let codec = kt + "Codec"
+            return (kt, "ByteArray", { "\(codec).decode(\($0))" },
+                    ["\(config.modelPackage).\(kt)", "\(config.codecPackage).\(codec)"])
+        case .array(let elementTypeName):
+            let kt = config.nameTransform.apply(to: elementTypeName)
+            let codec = kt + "Codec"
+            return ("List<\(kt)>", "ByteArray", { "WireletList.decode(\($0), \(codec)::decodePayload)" },
+                    [
+                        "\(config.modelPackage).\(kt)",
+                        "\(config.codecPackage).\(codec)",
+                        "\(config.runtimePackage).WireletList",
+                    ])
+        case .optionalString, .optionalPrimitive, .optionalWireFormat:
+            // Optional returns are unsupported (the Swift bridge emits a build-time #error first). Provide a
+            // harmless mapping so emission itself doesn't crash; the build fails on the Swift side.
+            return ("Unit", "Unit", { $0 }, [])
+        }
+    }
 }

@@ -214,18 +214,27 @@ enum ViewModelEmitter {
         let nativeFn = "native\(capitalised(method.name))"
         let params = method.parameters
 
+        // Return marshalling: `nil` for a `Void` method (no return clause).
+        let ret = method.returnTypeText.map {
+            ObservableKotlinTypeMap.invokeReturn(forReturnType: $0, config: config)
+        }
+        let retClause = ret.map { ": \($0.kotlinType)" } ?? ""
+        let externalRetClause = ret.map { ": \($0.externalFunType)" } ?? ""
+
         if params.isEmpty {
+            let call = "\(nativeFn)(nativePtr)"
+            let body = ret?.decodeExpr(call) ?? call
             let publicFn = """
-                fun \(method.name)() = \(nativeFn)(nativePtr)
+                fun \(method.name)()\(retClause) = \(body)
             """
-            let external = "    private external fun \(nativeFn)(self: Long)"
-            return (publicFn, external, [])
+            let external = "    private external fun \(nativeFn)(self: Long)\(externalRetClause)"
+            return (publicFn, external, ret?.imports ?? [])
         }
 
         var argDecls: [String] = []
         var nativeArgs: [String] = []
         var externalParams: [String] = ["self: Long"]
-        var imports: Set<String> = []
+        var imports: Set<String> = ret?.imports ?? []
 
         for (idx, param) in params.enumerated() {
             let publicName = chooseArgName(param: param, idx: idx)
@@ -260,11 +269,13 @@ enum ViewModelEmitter {
             }
         }
 
+        let call = "\(nativeFn)(nativePtr, \(nativeArgs.joined(separator: ", ")))"
+        let body = ret?.decodeExpr(call) ?? call
         let publicFn = """
-            fun \(method.name)(\(argDecls.joined(separator: ", "))) =
-                \(nativeFn)(nativePtr, \(nativeArgs.joined(separator: ", ")))
+            fun \(method.name)(\(argDecls.joined(separator: ", ")))\(retClause) =
+                \(body)
         """
-        let external = "    private external fun \(nativeFn)(\(externalParams.joined(separator: ", ")))"
+        let external = "    private external fun \(nativeFn)(\(externalParams.joined(separator: ", ")))\(externalRetClause)"
         return (publicFn, external, imports)
     }
 
