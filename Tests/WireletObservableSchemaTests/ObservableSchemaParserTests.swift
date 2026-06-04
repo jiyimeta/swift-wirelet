@@ -117,6 +117,39 @@ import Testing
     #expect(schema.viewModels[0].initParameters == [])
 }
 
+@Test func parsesMethodReturnTypes() throws {
+    let source = """
+    import Observation
+    import WireletObservable
+    @WireletObservable
+    @Observable
+    public final class ReturnsVM {
+        @WireletExpose public func foo(_ a: String) -> String { a }
+        @WireletExpose public func bar() {}
+        @WireletExpose public func baz() -> Void {}
+        @WireletExpose public func qux() -> () {}
+        @WireletExpose public func items() -> [TodoItem] { [] }
+    }
+    """
+    let schema = ObservableSchemaParser.parse(source: source, fileName: "ReturnsVM.swift")
+
+    #expect(schema.viewModels.count == 1)
+    let vm = schema.viewModels[0]
+    #expect(vm.methods == [
+        ObservableMethod(
+            name: "foo",
+            parameters: [
+                ObservableMethodParameter(label: "_", internalName: "a", typeText: "String"),
+            ],
+            returnTypeText: "String"
+        ),
+        ObservableMethod(name: "bar", parameters: [], returnTypeText: nil),
+        ObservableMethod(name: "baz", parameters: [], returnTypeText: nil),
+        ObservableMethod(name: "qux", parameters: [], returnTypeText: nil),
+        ObservableMethod(name: "items", parameters: [], returnTypeText: "[TodoItem]"),
+    ])
+}
+
 @Test func ignoresNonObservableDecls() throws {
     let url = try #require(Bundle.module.url(
         forResource: "MixedDecls",

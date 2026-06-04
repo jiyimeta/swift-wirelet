@@ -103,9 +103,18 @@ public struct ObservableMethod: Equatable, Sendable {
     /// via `InvokeArgClassifier`. Unrepresentable types surface as a
     /// compile error in the generated bridge.
     public var parameters: [ObservableMethodParameter]
-    public init(name: String, parameters: [ObservableMethodParameter]) {
+    /// Swift return type text as written in source (e.g. `String`, `[TodoItem]`), or `nil` for a `Void`/`()`/absent
+    /// return clause. The bridge emitters classify it via `InvokeArgClassifier`; unrepresentable returns surface as a
+    /// compile error in the generated bridge.
+    public var returnTypeText: String?
+    public init(
+        name: String,
+        parameters: [ObservableMethodParameter],
+        returnTypeText: String? = nil
+    ) {
         self.name = name
         self.parameters = parameters
+        self.returnTypeText = returnTypeText
     }
 }
 

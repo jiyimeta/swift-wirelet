@@ -88,9 +88,13 @@ final class ObservableVisitor: SyntaxVisitor {
                     typeText: param.type.trimmedDescription
                 )
             }
+            let returnTypeText = funcDecl.signature.returnClause
+                .map { $0.type.trimmedDescription }
+                .flatMap { $0 == "Void" || $0 == "()" ? nil : $0 }
             out.append(ObservableMethod(
                 name: funcDecl.name.text,
-                parameters: params
+                parameters: params,
+                returnTypeText: returnTypeText
             ))
         }
         return out
