@@ -1,5 +1,5 @@
 #if os(Android)
-import CWireletJNI
+import SwiftJavaJNICore
 import Foundation
 import Wirelet
 

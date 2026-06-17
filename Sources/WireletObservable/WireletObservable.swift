@@ -2,7 +2,7 @@
 // because the macro-generated extensions are themselves guarded by
 // `#if os(Android)` and so the JNI types are never referenced.
 #if os(Android)
-@_exported import CWireletJNI
+@_exported import SwiftJavaJNICore
 #endif
 
 /// Marker for a method that the Wirelet Observable Kotlin codegen should

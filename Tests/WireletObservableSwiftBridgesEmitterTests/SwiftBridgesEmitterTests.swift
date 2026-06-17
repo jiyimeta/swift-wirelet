@@ -29,10 +29,12 @@ struct JNIOnLoadEmitterTests {
         #expect(output.contains("#endif"))
         // Imports
         #expect(output.contains("import Android"))
-        #expect(output.contains("import CWireletJNI"))
+        #expect(output.contains("import SwiftJavaJNICore"))
         // JNI_OnLoad function
         #expect(output.contains(#"@_cdecl("JNI_OnLoad")"#))
         #expect(output.contains("public func JNI_OnLoad("))
+        // Registers the adopted JVM as the shared instance for JObject.
+        #expect(output.contains("JavaVirtualMachine.setShared(JavaVirtualMachine(adoptingJVM: vm))"))
         // FindClass call with the Kotlin FQN
         #expect(output.contains("io/github/example/CounterVMViewModel"))
         // dlsym for each symbol

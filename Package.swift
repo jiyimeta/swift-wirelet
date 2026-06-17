@@ -29,6 +29,12 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
+        // Low-level JNI plumbing for the Android Observable/Provided bridges
+        // (JObject). Version-based `from: 0.5.1` to match swift-java's own
+        // `swift-java-jni-core` constraint, so downstream graphs that also pull
+        // swift-java (e.g. swift-sheet-music) resolve a single shared version
+        // rather than failing on a mixed revision/version requirement.
+        .package(url: "https://github.com/swiftlang/swift-java-jni-core.git", from: "0.5.1"),
     ],
     targets: [
         .macro(
@@ -44,10 +50,6 @@ let package = Package(
             name: "Wirelet",
             dependencies: ["WireletMacros"]
         ),
-        .systemLibrary(
-            name: "CWireletJNI",
-            path: "Sources/CWireletJNI"
-        ),
         .macro(
             name: "WireletObservableMacros",
             dependencies: [
@@ -62,7 +64,7 @@ let package = Package(
             dependencies: [
                 "Wirelet",
                 "WireletObservableMacros",
-                "CWireletJNI",
+                .product(name: "SwiftJavaJNICore", package: "swift-java-jni-core"),
             ]
         ),
         .macro(

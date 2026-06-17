@@ -19,7 +19,7 @@ public enum JNIOnLoadEmitter {
         // Do not edit by hand.
         #if os(Android)
         import Android
-        import CWireletJNI
+        import SwiftJavaJNICore
 
         \(body)
         #endif
@@ -44,6 +44,12 @@ public enum JNIOnLoadEmitter {
             guard let vm, let vmFns = vm.pointee?.pointee else {
                 return JNI_ERR
             }
+
+            // Register the adopted JVM as the shared instance so that
+            // JObject's `JavaVirtualMachine.shared()` returns it directly
+            // instead of falling back to dlopen + JNI_GetCreatedJavaVMs on
+            // first use.
+            JavaVirtualMachine.setShared(JavaVirtualMachine(adoptingJVM: vm))
 
             var envRaw: UnsafeMutableRawPointer?
             let getEnvResult = vmFns.GetEnv(vm, &envRaw, JNI_VERSION_1_6)

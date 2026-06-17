@@ -1,19 +1,26 @@
 #if os(Android)
-import CWireletJNI
+import SwiftJavaJNICore
 import Foundation
 
 /// Wraps a JNI `jobject` so Swift can invoke its methods without spelling
 /// out the JNI ceremony. Holds a JNI **global reference** (the local ref
 /// passed across an `@_cdecl` boundary would be invalid by the time a
-/// later call fires) and the `JavaVM` so calls can `AttachCurrentThread`
-/// from whatever thread mutates Swift state.
+/// later call fires) plus the shared ``JavaVirtualMachine`` so calls can
+/// re-attach from whatever thread mutates Swift state.
 ///
 /// Originally introduced for the `@WireletObservable` re-arm path (a single
 /// `Runnable.run()` call); generalized here to typed, argument-bearing
 /// calls so Swift can drive a Kotlin-implemented service (`@WireletProvided`).
+///
+/// PoC note: the JavaVM caching, thread attach/detach, and local-reference
+/// frame bookkeeping are delegated to Apple's `swift-java-jni-core`
+/// (`JavaVirtualMachine` + the `JNIEnvironment` extensions). What remains
+/// here is the dynamic, name+signature method dispatch that jni-core does
+/// not provide (it expects generated bindings instead).
 public final class JObject: @unchecked Sendable {
     /// A value to pass as a JNI method argument. Object-typed cases
-    /// (`bytes`, `string`) allocate a local ref that the call frees.
+    /// (`bytes`, `string`) allocate a local ref freed by the enclosing
+    /// local-reference frame.
     public enum Arg {
         case int(Int32)
         case long(Int64)
@@ -24,28 +31,25 @@ public final class JObject: @unchecked Sendable {
         case string(String)   // -> jstring (Ljava/lang/String;)
     }
 
-    private let vm: UnsafeMutablePointer<JavaVM?>
+    private let vm: JavaVirtualMachine
     private let globalRef: jobject
 
-    public init?(env: UnsafeMutablePointer<JNIEnv?>?, jobject local: jobject?) {
-        guard let env = env, let envValue = env.pointee, let local = local else {
+    public init?(env: JNIEnvironment?, jobject local: jobject?) {
+        guard let env, let local else { return nil }
+        // Adopt the already-running ART VM. On Android `shared()` resolves it
+        // via `JNI_GetCreatedJavaVMs` (or the instance a generated
+        // `JNI_OnLoad` registered with `setShared`).
+        guard let vm = try? JavaVirtualMachine.shared() else { return nil }
+        guard let global = env.interface.NewGlobalRef(env, local) else {
             return nil
         }
-        var rawVM: UnsafeMutablePointer<JavaVM?>?
-        let vmResult = envValue.pointee.GetJavaVM(env, &rawVM)
-        guard vmResult == JNI_OK, let rawVM else { return nil }
-        guard let global = envValue.pointee.NewGlobalRef(env, local) else {
-            return nil
-        }
-        self.vm = rawVM
+        self.vm = vm
         self.globalRef = global
     }
 
     deinit {
-        var env: UnsafeMutablePointer<JNIEnv?>?
-        let attachResult = vm.pointee?.pointee.AttachCurrentThread(vm, &env, nil) ?? JNI_ERR
-        guard attachResult == JNI_OK, let env, let envValue = env.pointee else { return }
-        envValue.pointee.DeleteGlobalRef(env, globalRef)
+        guard let env = try? vm.environment() else { return }
+        env.interface.DeleteGlobalRef(env, globalRef)
     }
 
     /// Convenience for the observable re-arm path: `void <name>()`.
@@ -54,39 +58,39 @@ public final class JObject: @unchecked Sendable {
     }
 
     public func callVoid(method: String, signature: String, _ args: [Arg] = []) {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
-            envValue.pointee.CallVoidMethodA(env, globalRef, mid, jargs)
+        perform(method: method, signature: signature, args: args) { env, mid, jargs in
+            env.interface.CallVoidMethodA(env, globalRef, mid, jargs)
             return ()
         }
     }
 
     public func callInt(method: String, signature: String, _ args: [Arg] = []) -> Int32? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
-            Int32(envValue.pointee.CallIntMethodA(env, globalRef, mid, jargs))
+        perform(method: method, signature: signature, args: args) { env, mid, jargs in
+            Int32(env.interface.CallIntMethodA(env, globalRef, mid, jargs))
         }
     }
 
     public func callBool(method: String, signature: String, _ args: [Arg] = []) -> Bool? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
-            envValue.pointee.CallBooleanMethodA(env, globalRef, mid, jargs) != 0
+        perform(method: method, signature: signature, args: args) { env, mid, jargs in
+            env.interface.CallBooleanMethodA(env, globalRef, mid, jargs) != 0
         }
     }
 
     public func callLong(method: String, signature: String, _ args: [Arg] = []) -> Int64? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
-            Int64(envValue.pointee.CallLongMethodA(env, globalRef, mid, jargs))
+        perform(method: method, signature: signature, args: args) { env, mid, jargs in
+            Int64(env.interface.CallLongMethodA(env, globalRef, mid, jargs))
         }
     }
 
     public func callFloat(method: String, signature: String, _ args: [Arg] = []) -> Float? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
-            Float(envValue.pointee.CallFloatMethodA(env, globalRef, mid, jargs))
+        perform(method: method, signature: signature, args: args) { env, mid, jargs in
+            Float(env.interface.CallFloatMethodA(env, globalRef, mid, jargs))
         }
     }
 
     public func callDouble(method: String, signature: String, _ args: [Arg] = []) -> Double? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs in
-            Double(envValue.pointee.CallDoubleMethodA(env, globalRef, mid, jargs))
+        perform(method: method, signature: signature, args: args) { env, mid, jargs in
+            Double(env.interface.CallDoubleMethodA(env, globalRef, mid, jargs))
         }
     }
 
@@ -94,20 +98,21 @@ public final class JObject: @unchecked Sendable {
     /// copies the bytes out. Returns `nil` if the Kotlin method returned
     /// `null` or the call failed.
     public func callBytes(method: String, signature: String, _ args: [Arg] = []) -> [UInt8]? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs -> [UInt8]? in
-            guard let arr = envValue.pointee.CallObjectMethodA(env, globalRef, mid, jargs) else {
+        perform(method: method, signature: signature, args: args) { env, mid, jargs -> [UInt8]? in
+            guard let arr = env.interface.CallObjectMethodA(env, globalRef, mid, jargs) else {
                 return nil
             }
-            let len = envValue.pointee.GetArrayLength(env, arr)
+            // `arr` is a local ref freed when `perform`'s local frame pops;
+            // the bytes are copied out before that happens.
+            let len = env.interface.GetArrayLength(env, arr)
             guard len > 0 else { return [] }
             var buffer = [UInt8](repeating: 0, count: Int(len))
             buffer.withUnsafeMutableBytes { raw in
-                envValue.pointee.GetByteArrayRegion(
+                env.interface.GetByteArrayRegion(
                     env, arr, 0, len,
                     raw.baseAddress?.assumingMemoryBound(to: jbyte.self)
                 )
             }
-            envValue.pointee.DeleteLocalRef(env, arr)
             return buffer
         // Flatten `[UInt8]??` into one `nil`: outer nil = attach/resolve
         // failure, inner nil = Kotlin returned null.
@@ -118,14 +123,13 @@ public final class JObject: @unchecked Sendable {
     /// copies the UTF-8 contents out. Returns `nil` if the Kotlin method
     /// returned `null` or the call failed.
     public func callString(method: String, signature: String, _ args: [Arg] = []) -> String? {
-        perform(method: method, signature: signature, args: args) { env, envValue, mid, jargs -> String? in
-            guard let obj = envValue.pointee.CallObjectMethodA(env, globalRef, mid, jargs) else {
+        perform(method: method, signature: signature, args: args) { env, mid, jargs -> String? in
+            guard let obj = env.interface.CallObjectMethodA(env, globalRef, mid, jargs) else {
                 return nil
             }
-            let cstr = envValue.pointee.GetStringUTFChars(env, obj, nil)
+            let cstr = env.interface.GetStringUTFChars(env, obj, nil)
             defer {
-                if let cstr { envValue.pointee.ReleaseStringUTFChars(env, obj, cstr) }
-                envValue.pointee.DeleteLocalRef(env, obj)
+                if let cstr { env.interface.ReleaseStringUTFChars(env, obj, cstr) }
             }
             guard let cstr else { return nil }
             return String(cString: cstr)
@@ -140,83 +144,82 @@ public final class JObject: @unchecked Sendable {
     /// functions with a pending exception, so this must run before any
     /// follow-up JNI call on the same thread.
     @discardableResult
-    private func drainException(_ env: UnsafeMutablePointer<JNIEnv?>, _ envValue: JNIEnv) -> Bool {
-        guard envValue.pointee.ExceptionCheck(env) != 0 else { return false }
-        envValue.pointee.ExceptionDescribe(env)
-        envValue.pointee.ExceptionClear(env)
+    private func drainException(_ env: JNIEnvironment) -> Bool {
+        guard env.interface.ExceptionCheck(env) != 0 else { return false }
+        env.interface.ExceptionDescribe(env)
+        env.interface.ExceptionClear(env)
         return true
     }
 
-    /// Attaches the current thread, resolves the method, marshals `args`
-    /// into a `jvalue` array (freeing object local refs and the resolved
-    /// `jclass` afterwards), invokes `body`, and drains any pending Java
-    /// exception so a later call on this thread starts clean.
+    /// Attaches the current thread (via the shared VM), resolves the method,
+    /// marshals `args` into a `jvalue` array inside a JNI local-reference
+    /// frame (which frees object arg refs and the resolved `jclass` on
+    /// return), invokes `body`, and drains any pending Java exception so a
+    /// later call on this thread starts clean.
     private func perform<R>(
         method: String,
         signature: String,
         args: [Arg],
-        _ body: (UnsafeMutablePointer<JNIEnv?>, JNIEnv, jmethodID, UnsafeMutablePointer<jvalue>?) -> R
+        _ body: (JNIEnvironment, jmethodID, UnsafeMutablePointer<jvalue>?) -> R
     ) -> R? {
-        var env: UnsafeMutablePointer<JNIEnv?>?
-        let attachResult = vm.pointee?.pointee.AttachCurrentThread(vm, &env, nil) ?? JNI_ERR
-        guard attachResult == JNI_OK, let env, let envValue = env.pointee else { return nil }
-        guard let cls = envValue.pointee.GetObjectClass(env, globalRef) else {
-            drainException(env, envValue)
-            return nil
-        }
-        defer { envValue.pointee.DeleteLocalRef(env, cls) }
-        guard let mid = envValue.pointee.GetMethodID(env, cls, method, signature) else {
-            drainException(env, envValue)
-            return nil
-        }
+        guard let env = try? vm.environment() else { return nil }
+        let framed: R?? = try? env.withLocalFrame(capacity: max(16, args.count + 4)) { () -> R? in
+            guard let cls = env.interface.GetObjectClass(env, globalRef) else {
+                drainException(env)
+                return nil
+            }
+            guard let mid = env.interface.GetMethodID(env, cls, method, signature) else {
+                drainException(env)
+                return nil
+            }
 
-        var jargs: [jvalue] = []
-        var localRefs: [jobject] = []
-        defer { for ref in localRefs { envValue.pointee.DeleteLocalRef(env, ref) } }
-        jargs.reserveCapacity(args.count)
-        for arg in args {
-            switch arg {
-            case .int(let v): jargs.append(jvalue(i: jint(v)))
-            case .long(let v): jargs.append(jvalue(j: jlong(v)))
-            case .bool(let v): jargs.append(jvalue(z: jboolean(v ? JNI_TRUE : JNI_FALSE)))
-            case .float(let v): jargs.append(jvalue(f: jfloat(v)))
-            case .double(let v): jargs.append(jvalue(d: jdouble(v)))
-            case .bytes(let bytes):
-                guard let arr = envValue.pointee.NewByteArray(env, jsize(bytes.count)) else {
-                    drainException(env, envValue)
-                    return nil
-                }
-                if !bytes.isEmpty {
-                    bytes.withUnsafeBufferPointer { bp in
-                        bp.baseAddress!.withMemoryRebound(to: jbyte.self, capacity: bytes.count) { jb in
-                            envValue.pointee.SetByteArrayRegion(env, arr, 0, jsize(bytes.count), jb)
+            var jargs: [jvalue] = []
+            jargs.reserveCapacity(args.count)
+            for arg in args {
+                switch arg {
+                case .int(let v): jargs.append(jvalue(i: jint(v)))
+                case .long(let v): jargs.append(jvalue(j: jlong(v)))
+                case .bool(let v): jargs.append(jvalue(z: jboolean(v ? JNI_TRUE : JNI_FALSE)))
+                case .float(let v): jargs.append(jvalue(f: jfloat(v)))
+                case .double(let v): jargs.append(jvalue(d: jdouble(v)))
+                case .bytes(let bytes):
+                    guard let arr = env.interface.NewByteArray(env, jsize(bytes.count)) else {
+                        drainException(env)
+                        return nil
+                    }
+                    if !bytes.isEmpty {
+                        bytes.withUnsafeBufferPointer { bp in
+                            bp.baseAddress!.withMemoryRebound(to: jbyte.self, capacity: bytes.count) { jb in
+                                env.interface.SetByteArrayRegion(env, arr, 0, jsize(bytes.count), jb)
+                            }
                         }
                     }
+                    jargs.append(jvalue(l: arr))   // freed when the local frame pops
+                case .string(let s):
+                    guard let js = s.withCString({ env.interface.NewStringUTF(env, $0) }) else {
+                        drainException(env)
+                        return nil
+                    }
+                    jargs.append(jvalue(l: js))    // freed when the local frame pops
                 }
-                localRefs.append(arr)
-                jargs.append(jvalue(l: arr))
-            case .string(let s):
-                guard let js = s.withCString({ envValue.pointee.NewStringUTF(env, $0) }) else {
-                    drainException(env, envValue)
-                    return nil
-                }
-                localRefs.append(js)
-                jargs.append(jvalue(l: js))
             }
-        }
 
-        // A marshaling step (e.g. SetByteArrayRegion) may have raised without
-        // returning nil; bail before issuing the call rather than invoke JNI
-        // with an exception pending.
-        if drainException(env, envValue) {
-            return nil
-        }
+            // A marshaling step (e.g. SetByteArrayRegion) may have raised
+            // without returning nil; bail before issuing the call rather than
+            // invoke JNI with an exception pending.
+            if drainException(env) {
+                return nil
+            }
 
-        let result = jargs.withUnsafeMutableBufferPointer { buf in
-            body(env, envValue, mid, buf.baseAddress)
+            let result = jargs.withUnsafeMutableBufferPointer { buf in
+                body(env, mid, buf.baseAddress)
+            }
+            drainException(env)
+            return result
         }
-        drainException(env, envValue)
-        return result
+        // `framed` is `R??`: outer nil = withLocalFrame threw (OOM pushing the
+        // frame), inner nil = a resolve/marshal step bailed.
+        return framed ?? nil
     }
 }
 #endif
