@@ -35,7 +35,7 @@ jobs:
     name: swiftformat + swiftlint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Whole-repo format check. The root .swiftformat excludes **/Fixtures,
       # so this covers Sources, Tests, Plugins, and examples.
