@@ -27,9 +27,9 @@ dependencies {
     compileOnly("com.android.tools.build:gradle-api:8.7.0")
 
     testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.0")
     functionalTestImplementation(kotlin("test"))
-    functionalTestImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    functionalTestImplementation("org.junit.jupiter:junit-jupiter:6.1.0")
     functionalTestImplementation(gradleTestKit())
 }
 
