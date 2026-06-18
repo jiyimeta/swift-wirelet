@@ -1,0 +1,24 @@
+# Schema-parser test fixtures are parsed AS TEXT (type annotations and
+# `= nil` are significant). SwiftFormat already skips them via .swiftformat,
+# but SwiftLint --fix ignores the config's `excluded:` when pre-commit passes
+# explicit file paths and would rewrite them — strip every Fixtures/ dir here.
+exclude: (^|/)Fixtures/
+
+repos:
+  - repo: local
+    hooks:
+      - id: swiftformat
+        name: SwiftFormat
+        entry: swiftformat
+        language: system
+        types: [swift]
+      - id: swiftlint-autocorrect
+        name: SwiftLint (--fix)
+        entry: swiftlint --fix --quiet
+        language: system
+        types: [swift]
+      - id: swiftlint
+        name: SwiftLint (strict)
+        entry: swiftlint lint --strict --quiet
+        language: system
+        types: [swift]

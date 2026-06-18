@@ -15,9 +15,9 @@ import WireletProvidedSwiftBridgesEmitter
 struct WireletProvidedBridgesPluginContract {
     @Test func pluginInvokesCorrectToolAndDeclaresProxyOutput() throws {
         let pluginURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()  // Tests/WireletProvidedSwiftBridgesEmitterTests/
-            .deletingLastPathComponent()  // Tests/
-            .deletingLastPathComponent()  // swift-wirelet/
+            .deletingLastPathComponent() // Tests/WireletProvidedSwiftBridgesEmitterTests/
+            .deletingLastPathComponent() // Tests/
+            .deletingLastPathComponent() // swift-wirelet/
             .appendingPathComponent("Plugins/WireletProvidedBridges/Plugin.swift")
         let source = try String(contentsOf: pluginURL, encoding: .utf8)
         #expect(
@@ -25,21 +25,20 @@ struct WireletProvidedBridgesPluginContract {
             """
             Plugin.swift must reference the EmitWireletProvidedSwiftBridges tool name
             so context.tool(named:) resolves the correct CLI executable.
-            """
+            """,
         )
         #expect(
             source.contains("+WireletProxy.swift"),
             """
             Plugin.swift must declare output files with the +WireletProxy.swift suffix
             so SwiftPM compiles the generated proxy files into the consumer target.
-            """
+            """,
         )
     }
 }
 
 @Suite("ProvidedSwiftBridgesEmitterTests")
 struct ProvidedSwiftBridgesEmitterTests {
-
     private func writeTmp(name: String, content: String) throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("provided-emitter-tests-\(UUID().uuidString)")
@@ -125,7 +124,8 @@ struct ProvidedSwiftBridgesEmitterTests {
         #expect(content.contains(#"return adapter.callDouble(method: "ratioWire", signature: "()D") ?? 0"#))
         #expect(content.contains(#"return adapter.callFloat(method: "magnitudeWire", signature: "()F") ?? 0"#))
         #expect(content.contains(#"return adapter.callBool(method: "enabledWire", signature: "()Z") ?? false"#))
-        #expect(content.contains(#"return adapter.callString(method: "nameWire", signature: "()Ljava/lang/String;") ?? """#))
+        let nameCall = #"return adapter.callString(method: "nameWire", signature: "()Ljava/lang/String;") ?? """#
+        #expect(content.contains(nameCall))
 
         // Mixed args build the right descriptor + Arg list.
         #expect(content.contains("func configure(_ scale: Double, _ label: String, _ flag: Bool, _ big: Int64) {"))
@@ -172,7 +172,9 @@ struct ProvidedSwiftBridgesEmitterTests {
         #expect(content.contains("for element in b { element.encode(into: &writer1) }"))
         #expect(content.contains("let arg1Bytes = [UInt8](writer1.data)"))
         // Descriptor + Arg list stay positionally aligned (two byte args).
-        #expect(content.contains(#"adapter.callVoid(method: "mergeWire", signature: "([B[B)V", [.bytes(arg0Bytes), .bytes(arg1Bytes)])"#))
+        let mergeCall = #"adapter.callVoid(method: "mergeWire", signature: "([B[B)V", "#
+            + #"[.bytes(arg0Bytes), .bytes(arg1Bytes)])"#
+        #expect(content.contains(mergeCall))
     }
 
     // MARK: - Single @WireFormat return traps on missing/invalid bytes

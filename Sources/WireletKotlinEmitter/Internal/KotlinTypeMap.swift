@@ -23,6 +23,10 @@ enum KotlinTypeMap {
     /// Returns the TLV plan for a Swift primitive type, or `nil` for
     /// non-primitive (structured / user-defined) types.
     static func primitive(_ swiftType: String) -> Primitive? {
+        integerPrimitive(swiftType) ?? scalarPrimitive(swiftType)
+    }
+
+    private static func integerPrimitive(_ swiftType: String) -> Primitive? {
         switch swiftType {
         case "Int8":
             return Primitive(
@@ -80,6 +84,13 @@ enum KotlinTypeMap {
                 writePayload: { v, w in "\(w).writeVarint((\(v)).toLong())" },
                 readPayload: { r in "\(r).readVarint().toULong()" },
             )
+        default:
+            return nil
+        }
+    }
+
+    private static func scalarPrimitive(_ swiftType: String) -> Primitive? {
+        switch swiftType {
         case "Float":
             return Primitive(
                 kotlinType: "Float",
@@ -204,7 +215,9 @@ enum KotlinTypeMap {
             return "List<\(kotlinType(of: elem, nameTransform: nameTransform))>"
         }
         if let (k, v) = dictionaryTypes(of: swiftType) {
-            return "Map<\(kotlinType(of: k, nameTransform: nameTransform)), \(kotlinType(of: v, nameTransform: nameTransform))>"
+            let keyType = kotlinType(of: k, nameTransform: nameTransform)
+            let valueType = kotlinType(of: v, nameTransform: nameTransform)
+            return "Map<\(keyType), \(valueType)>"
         }
         return nameTransform.apply(to: simpleName(of: swiftType))
     }

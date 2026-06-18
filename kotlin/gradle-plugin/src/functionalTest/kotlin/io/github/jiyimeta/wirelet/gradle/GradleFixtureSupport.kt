@@ -10,10 +10,11 @@ import java.io.File
  * Swift package.
  */
 internal val wireletRepoRoot: File
-    get() = File(
-        System.getProperty("wirelet.repoRoot")
-            ?: error("wirelet.repoRoot system property not set"),
-    )
+    get() =
+        File(
+            System.getProperty("wirelet.repoRoot")
+                ?: error("wirelet.repoRoot system property not set"),
+        )
 
 /**
  * Lays down a minimal Kotlin-JVM Gradle project under `dir`:
@@ -25,7 +26,10 @@ internal val wireletRepoRoot: File
  * the `plugins { ... }` block — use it to add the `wirelet { ... }`
  * configuration and any test-specific tasks.
  */
-internal fun layoutFixture(dir: File, extraBuildScript: String) {
+internal fun layoutFixture(
+    dir: File,
+    extraBuildScript: String,
+) {
     dir.resolve("settings.gradle.kts").writeText(
         """
         rootProject.name = "wirelet-fixture"
@@ -48,7 +52,11 @@ internal fun layoutFixture(dir: File, extraBuildScript: String) {
 /**
  * Writes `content` to `<dir>/<relativePath>`, creating parent directories.
  */
-internal fun writeSchemaFile(dir: File, relativePath: String, content: String) {
+internal fun writeSchemaFile(
+    dir: File,
+    relativePath: String,
+    content: String,
+) {
     val file = dir.resolve(relativePath)
     file.parentFile.mkdirs()
     file.writeText(content)
@@ -58,7 +66,10 @@ internal fun writeSchemaFile(dir: File, relativePath: String, content: String) {
  * Builds a `GradleRunner` rooted at `dir` with the plugin under test on
  * the classpath. JUnit and JDK assertions remain available in callers.
  */
-internal fun runner(dir: File, vararg args: String): GradleRunner =
+internal fun runner(
+    dir: File,
+    vararg args: String,
+): GradleRunner =
     GradleRunner.create()
         .withProjectDir(dir)
         .withPluginClasspath()

@@ -1,0 +1,17 @@
+root = true
+
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+max_line_length = 120
+indent_size = 4
+insert_final_newline = true
+# function-signature / argument-list-wrapping force verbose multi-line
+# signatures and argument lists even for short declarations, which is
+# noisier than the Swift side (SwiftFormat keeps compact signatures).
+# Keep code compact; rely on max_line_length for wrapping long lines.
+ktlint_standard_function-signature = disabled
+ktlint_standard_argument-list-wrapping = disabled
+# filename rule wants single-declaration files renamed after the type
+# (e.g. ByteArrayLex.kt -> ByteArrayLexComparator.kt). Project keeps
+# intent-named files; disable.
+ktlint_standard_filename = disabled

@@ -97,6 +97,8 @@ public enum JNIOnLoadEmitter {
     }
 
     private static func renderMethodRow(_ m: NativeMethod, className: String) -> String {
+        let methodEntry = "JNINativeMethod(name: cName_\(m.name), "
+            + "signature: cSig_\(m.name), fnPtr: fn_\(m.name))"
         return """
         do {
             guard let fn_\(m.name) = "\(m.cdeclSymbol)".withCString({ dlsym(nil, $0) }) else { return JNI_ERR }
@@ -104,7 +106,7 @@ public enum JNIOnLoadEmitter {
                   let cSig_\(m.name) = strdup("\(m.signature)") else { return JNI_ERR }
             nameStorage_\(className).append(cName_\(m.name))
             sigStorage_\(className).append(cSig_\(m.name))
-            __methods_\(className).append(JNINativeMethod(name: cName_\(m.name), signature: cSig_\(m.name), fnPtr: fn_\(m.name)))
+            __methods_\(className).append(\(methodEntry))
         }
         """
     }
@@ -112,9 +114,9 @@ public enum JNIOnLoadEmitter {
 
 // MARK: - String indentation helper
 
-private extension String {
+extension String {
     /// Prepends `count` spaces to every non-empty line.
-    func indented(by count: Int) -> String {
+    fileprivate func indented(by count: Int) -> String {
         let prefix = String(repeating: " ", count: count)
         return split(separator: "\n", omittingEmptySubsequences: false)
             .map { line -> String in line.isEmpty ? "" : prefix + line }

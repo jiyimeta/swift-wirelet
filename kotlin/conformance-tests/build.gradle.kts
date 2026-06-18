@@ -25,7 +25,7 @@ dependencies {
 }
 
 // Wire root for resolving paths into the wirelet Swift package.
-val wireletRoot: File = rootDir.parentFile  // kotlin/.. = wirelet repo root
+val wireletRoot: File = rootDir.parentFile // kotlin/.. = wirelet repo root
 
 sourceSets["main"].kotlin.srcDirs("src/main/kotlin", "build/generated/wirelet")
 
@@ -42,11 +42,17 @@ val generateCodecs by tasks.registering(Exec::class) {
     // schemas, so emit everything. (--include-package filters by Kotlin
     // codec package, not by Swift module name.)
     commandLine(
-        "swift", "run", "--package-path", wireletRoot.absolutePath,
+        "swift",
+        "run",
+        "--package-path",
+        wireletRoot.absolutePath,
         "emit-wirelet-kotlin",
-        "--config", configFile.absolutePath,
-        "--source", sourceDir.absolutePath,
-        "--output", outputDir.absolutePath,
+        "--config",
+        configFile.absolutePath,
+        "--source",
+        sourceDir.absolutePath,
+        "--output",
+        outputDir.absolutePath,
     )
     doFirst { outputDir.mkdirs() }
 }

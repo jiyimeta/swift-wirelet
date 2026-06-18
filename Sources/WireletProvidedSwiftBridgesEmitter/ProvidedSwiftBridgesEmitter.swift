@@ -1,6 +1,6 @@
 import Foundation
-import WireletObservableSchema  // InvokeArgClassifier, InvokeArgKind
-import WireletProvidedSchema    // ProvidedSchema, ProvidedService, ProvidedMethod, ProvidedParameter, ProvidedSchemaParser
+import WireletObservableSchema // InvokeArgClassifier, InvokeArgKind
+import WireletProvidedSchema // ProvidedSchema, ProvidedService, ProvidedMethod, ProvidedParameter, ProvidedSchemaParser
 
 /// Errors surfaced while rendering a `@WireletProvided` proxy. The offline
 /// CLI (Phase 3) presents these to the developer.
@@ -76,12 +76,12 @@ public struct ProvidedSwiftBridgesEmitter {
         for (idx, param) in method.parameters.enumerated() {
             let use = param.internalName ?? param.label
             switch InvokeArgClassifier.classify(param.typeText) {
-            case .primitive(let jni, _):
+            case let .primitive(jni, _):
                 switch jni {
-                case "jlong":   argExprs.append(".long(Int64(\(use)))")
-                case "jfloat":  argExprs.append(".float(\(use))")
+                case "jlong": argExprs.append(".long(Int64(\(use)))")
+                case "jfloat": argExprs.append(".float(\(use))")
                 case "jdouble": argExprs.append(".double(\(use))")
-                default:        argExprs.append(".int(Int32(\(use)))")  // jint
+                default: argExprs.append(".int(Int32(\(use)))") // jint
                 }
             case .bool:
                 argExprs.append(".bool(\(use))")
@@ -100,7 +100,7 @@ public struct ProvidedSwiftBridgesEmitter {
                 argExprs.append(".bytes(arg\(idx)Bytes)")
             case .optionalPrimitive, .optionalString, .optionalWireFormat:
                 throw ProvidedSwiftBridgesEmitterError.unsupportedType(
-                    service: service.name, method: method.name, type: param.typeText
+                    service: service.name, method: method.name, type: param.typeText,
                 )
             }
         }
@@ -108,7 +108,7 @@ public struct ProvidedSwiftBridgesEmitter {
         let descriptor = try jniDescriptor(service: service, method: method)
         let call = try renderReturn(
             service: service, method: method,
-            wireName: wireName, descriptor: descriptor, argsTail: argsTail
+            wireName: wireName, descriptor: descriptor, argsTail: argsTail,
         )
 
         let body = (prelude + [call]).joined(separator: "\n")
@@ -126,25 +126,25 @@ public struct ProvidedSwiftBridgesEmitter {
         method: ProvidedMethod,
         wireName: String,
         descriptor: String,
-        argsTail: String
+        argsTail: String,
     ) throws -> String {
         let head = "method: \"\(wireName)\", signature: \"\(descriptor)\"\(argsTail)"
         guard let returnType = method.returnTypeText else {
             return "adapter.callVoid(\(head))"
         }
         switch InvokeArgClassifier.classify(returnType) {
-        case .primitive(let jni, let cast):
+        case let .primitive(jni, cast):
             switch jni {
-            case "jlong":   return "return \(cast)(adapter.callLong(\(head)) ?? 0)"
-            case "jfloat":  return "return adapter.callFloat(\(head)) ?? 0"
+            case "jlong": return "return \(cast)(adapter.callLong(\(head)) ?? 0)"
+            case "jfloat": return "return adapter.callFloat(\(head)) ?? 0"
             case "jdouble": return "return adapter.callDouble(\(head)) ?? 0"
-            default:        return "return \(cast)(adapter.callInt(\(head)) ?? 0)"  // jint
+            default: return "return \(cast)(adapter.callInt(\(head)) ?? 0)" // jint
             }
         case .bool:
             return "return adapter.callBool(\(head)) ?? false"
         case .string:
             return "return adapter.callString(\(head)) ?? \"\""
-        case .wireFormat(let typeName):
+        case let .wireFormat(typeName):
             return """
             guard let bytes = adapter.callBytes(\(head)),
                   let value = try? \(typeName)(decoding: Data(bytes)) else {
@@ -152,7 +152,7 @@ public struct ProvidedSwiftBridgesEmitter {
             }
             return value
             """
-        case .array(let elementTypeName):
+        case let .array(elementTypeName):
             return """
             guard let bytes = adapter.callBytes(\(head)) else {
                 return []
@@ -169,7 +169,7 @@ public struct ProvidedSwiftBridgesEmitter {
             """
         case .optionalPrimitive, .optionalString, .optionalWireFormat:
             throw ProvidedSwiftBridgesEmitterError.unsupportedType(
-                service: service.name, method: method.name, type: returnType
+                service: service.name, method: method.name, type: returnType,
             )
         }
     }
@@ -195,12 +195,12 @@ public struct ProvidedSwiftBridgesEmitter {
 
     private func fragment(_ kind: InvokeArgKind) -> String {
         switch kind {
-        case .primitive(let jni, _):
+        case let .primitive(jni, _):
             switch jni {
-            case "jlong":   return "J"
-            case "jfloat":  return "F"
+            case "jlong": return "J"
+            case "jfloat": return "F"
             case "jdouble": return "D"
-            default:        return "I"  // jint
+            default: return "I" // jint
             }
         case .bool:
             return "Z"

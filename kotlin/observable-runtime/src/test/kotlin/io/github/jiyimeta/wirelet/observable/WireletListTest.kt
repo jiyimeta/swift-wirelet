@@ -6,11 +6,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class WireletListTest {
-
     /** Toy WireFormat-style element used by the round-trip tests. */
     private data class Pair2(val a: Int, val b: Int)
 
-    private fun encodePair(value: Pair2, w: BinaryWriter) {
+    private fun encodePair(
+        value: Pair2,
+        w: BinaryWriter,
+    ) {
         w.writeTag(1, io.github.jiyimeta.wirelet.WireType.VARINT)
         w.writeZigZagVarint(value.a.toLong())
         w.writeTag(2, io.github.jiyimeta.wirelet.WireType.VARINT)

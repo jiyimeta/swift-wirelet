@@ -38,7 +38,7 @@ public struct ProvidedMethod: Equatable, Sendable {
     public init(
         name: String,
         parameters: [ProvidedParameter],
-        returnTypeText: String?
+        returnTypeText: String?,
     ) {
         self.name = name
         self.parameters = parameters

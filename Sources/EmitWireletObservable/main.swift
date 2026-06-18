@@ -46,7 +46,7 @@ struct CLIArguments {
             sourceDir: s,
             outputDir: o,
             includePackages: includePackages,
-            jniSidecarPath: jniSidecar
+            jniSidecarPath: jniSidecar,
         )
     }
 }
@@ -77,7 +77,7 @@ let sourceURL = URL(fileURLWithPath: args.sourceDir, isDirectory: true)
 var aggregateSchema = ObservableSchema(viewModels: [])
 if let enumerator = FileManager.default.enumerator(
     at: sourceURL,
-    includingPropertiesForKeys: [.isRegularFileKey]
+    includingPropertiesForKeys: [.isRegularFileKey],
 ) {
     for case let url as URL in enumerator {
         guard url.pathExtension == "swift" else { continue }
@@ -108,7 +108,7 @@ for file in files {
     let dest = outputURL.appendingPathComponent(file.relativePath)
     try FileManager.default.createDirectory(
         at: dest.deletingLastPathComponent(),
-        withIntermediateDirectories: true
+        withIntermediateDirectories: true,
     )
     if let existing = try? String(contentsOf: dest, encoding: .utf8), existing == file.content {
         // Idempotent — skip rewrite.

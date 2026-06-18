@@ -9,10 +9,13 @@ import kotlin.test.assertTrue
 
 class ProvidedSourceSetTest {
     @Test
-    fun generatesAdapterKotlinForSimpleTodoStore(@TempDir tempDir: File) {
+    fun generatesAdapterKotlinForSimpleTodoStore(
+        @TempDir tempDir: File,
+    ) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 wirelet {
                     swiftPackagePath.set(file(${'"'}${wireletRepoRoot.absolutePath}${'"'}))
                     provided {
@@ -29,19 +32,20 @@ class ProvidedSourceSetTest {
                 // we only care that the generate task itself succeeds and
                 // wires output into the kotlin source set's srcDirs.
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/TodoStore.swift",
-            content = """
+            content =
+                """
                 import WireletProvided
 
                 @WireletProvided
                 public protocol TodoStore {
                     func remove(_ id: Int32)
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
         val result = runner(tempDir, "generateWireletProvidedInterfacesMain").build()
@@ -51,10 +55,11 @@ class ProvidedSourceSetTest {
             result.task(":generateWireletProvidedInterfacesMain")?.outcome,
             "provided generate task did not run to SUCCESS",
         )
-        val expectedFile = tempDir.resolve(
-            "build/generated/wirelet/provided/main/kotlin/" +
-                "com/example/fixture/provided/TodoStore.kt",
-        )
+        val expectedFile =
+            tempDir.resolve(
+                "build/generated/wirelet/provided/main/kotlin/" +
+                    "com/example/fixture/provided/TodoStore.kt",
+            )
         assertTrue(expectedFile.exists(), "adapter file not written at $expectedFile")
         val content = expectedFile.readText()
         assertTrue(

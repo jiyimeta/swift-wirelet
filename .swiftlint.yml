@@ -1,0 +1,133 @@
+disabled_rules:
+  - cyclomatic_complexity
+  - function_parameter_count
+  - multiple_closures_with_trailing_closure
+  - nesting
+  - opening_brace
+  - superfluous_disable_command
+  - todo
+  # SwiftFormat owns trailing-comma placement; swiftlint's view here
+  # cycles against swiftformat's spaceInsideBrackets / trailingCommas
+  # on nested collection literals like `])])`.
+  - trailing_comma
+  - trailing_whitespace
+  - vertical_whitespace
+
+opt_in_rules:
+  - array_init
+  - closure_body_length
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - contains_over_first_not_nil
+  - convenience_type
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - identical_operands
+  - implicit_return
+  - joined_default_parameter
+  - last_where
+  - literal_expression_end_indentation
+  - lower_acl_than_parent
+  - no_extension_access_modifier
+  - operator_usage_whitespace
+  - overridden_super_call
+  - pattern_matching_keywords
+  - prohibited_super_call
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - required_enum_case
+  - sorted_first_last
+  - static_operator
+  - toggle_bool
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - untyped_error_in_catch
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - yoda_condition
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - "**/.build"
+  - "**/.swiftpm"
+  # Schema-parser fixtures are parsed as text; never auto-correct them.
+  - "**/Fixtures"
+
+line_length:
+  warning: 120
+
+closure_body_length:
+  warning: 40
+
+function_body_length:
+  warning: 60
+
+file_length:
+  warning: 400
+
+type_body_length:
+  warning: 400
+
+type_name:
+  min_length: 1
+
+identifier_name:
+  min_length: 1
+
+large_tuple:
+  warning: 4
+
+# `file_length` is the only rule whose violation cannot be scoped to a
+# single declaration with `:next`, so blanket-disabling it at the top of
+# an intentionally long file is the only practical option. Every other
+# rule must use `:next` / `:previous` / `:this` (see the
+# `scoped_swiftlint_disable` custom rule below).
+blanket_disable_command:
+  severity: error
+  allowed_rules:
+    - file_length
+
+custom_rules:
+  # Forbid `extension Foo where ...` (constrained extension). Place the
+  # where-clause on each member instead. Extension-level where is allowed
+  # only when paired with protocol conformance (`extension Foo: Bar where`).
+  no_constrained_extension:
+    name: "Constrained Extension"
+    regex: '(?m)^[ \t]*extension[ \t]+\w+(?:<[^>]*>)?[ \t\r\n]+where\b'
+    message: "Move the where-clause onto individual members. Extension-level where is allowed only with protocol conformance."
+    severity: warning
+  # Force every swiftlint disable directive to be line-scoped with
+  # :next / :previous / :this. The single exception is
+  # `// swiftlint:disable file_length` alone on a line (file_length has
+  # no meaningful line-scoped form). The matching enable directive is
+  # banned by `no_swiftlint_enable` below.
+  scoped_swiftlint_disable:
+    name: "Scoped SwiftLint Disable"
+    regex: '//\s*swiftlint:disable\s+(?!file_length\s*$)\S'
+    match_kinds:
+      - comment
+    message: "Use // swiftlint:disable:next (or :previous, :this) instead of an unscoped disable. The only blanket form allowed is `// swiftlint:disable file_length`."
+    severity: error
+  # Disable/enable pair blocks are banned project-wide; `:next` /
+  # `:previous` / `:this` are expressive enough for any real case. The
+  # only allowed unscoped disable is `// swiftlint:disable file_length`,
+  # which by definition has no closing enable.
+  no_swiftlint_enable:
+    name: "No SwiftLint Enable"
+    regex: '//\s*swiftlint:enable\b'
+    match_kinds:
+      - comment
+    message: "Disable/enable pair blocks are not allowed; use :next / :previous / :this to scope individual lines."
+    severity: error

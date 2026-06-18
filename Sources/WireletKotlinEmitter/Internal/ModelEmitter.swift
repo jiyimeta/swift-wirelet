@@ -174,5 +174,7 @@ extension String {
     /// Kotlin enum cases conventionally use the original Swift case name
     /// verbatim (camelCase / PascalCase preserved). Sufficient for v1
     /// emission — codegen does not attempt to enforce SCREAMING_SNAKE_CASE.
-    fileprivate var kotlinEnumCase: String { self }
+    fileprivate var kotlinEnumCase: String {
+        self
+    }
 }

@@ -11,18 +11,20 @@ public struct WireletObservableMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingPeersOf declaration: some DeclSyntaxProtocol,
-        in context: some MacroExpansionContext
+        in context: some MacroExpansionContext,
     ) throws -> [DeclSyntax] {
         guard let classDecl = declaration.as(ClassDeclSyntax.self) else {
             context.diagnose(Diagnostic(node: Syntax(node), message: WireletObservableDiagnostic.notAFinalClass))
             return []
         }
         guard hasFinalModifier(classDecl) else {
-            context.diagnose(Diagnostic(node: Syntax(classDecl.name), message: WireletObservableDiagnostic.notAFinalClass))
+            let message = WireletObservableDiagnostic.notAFinalClass
+            context.diagnose(Diagnostic(node: Syntax(classDecl.name), message: message))
             return []
         }
         guard hasObservableAttribute(classDecl) else {
-            context.diagnose(Diagnostic(node: Syntax(classDecl.name), message: WireletObservableDiagnostic.missingObservableAttribute))
+            let message = WireletObservableDiagnostic.missingObservableAttribute
+            context.diagnose(Diagnostic(node: Syntax(classDecl.name), message: message))
             return []
         }
 
@@ -44,6 +46,4 @@ public struct WireletObservableMacro: PeerMacro {
             return attribute.attributeName.trimmedDescription == "Observable"
         }
     }
-
-
 }

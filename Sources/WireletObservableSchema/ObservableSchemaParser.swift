@@ -34,7 +34,7 @@ final class ObservableVisitor: SyntaxVisitor {
             name: node.name.text,
             properties: properties,
             methods: methods,
-            initParameters: initParameters
+            initParameters: initParameters,
         ))
         return .visitChildren
     }
@@ -69,7 +69,7 @@ final class ObservableVisitor: SyntaxVisitor {
                     name: ident.identifier.text,
                     swiftTypeText: typeText,
                     kind: kind,
-                    isMutable: isMutable
+                    isMutable: isMutable,
                 ))
             }
         }
@@ -85,16 +85,16 @@ final class ObservableVisitor: SyntaxVisitor {
                 ObservableMethodParameter(
                     label: param.firstName.text,
                     internalName: param.secondName?.text,
-                    typeText: param.type.trimmedDescription
+                    typeText: param.type.trimmedDescription,
                 )
             }
             let returnTypeText = funcDecl.signature.returnClause
-                .map { $0.type.trimmedDescription }
+                .map(\.type.trimmedDescription)
                 .flatMap { $0 == "Void" || $0 == "()" ? nil : $0 }
             out.append(ObservableMethod(
                 name: funcDecl.name.text,
                 parameters: params,
-                returnTypeText: returnTypeText
+                returnTypeText: returnTypeText,
             ))
         }
         return out
@@ -114,7 +114,7 @@ final class ObservableVisitor: SyntaxVisitor {
                 ObservableInitParameter(
                     label: param.firstName.text,
                     internalName: param.secondName?.text,
-                    typeText: param.type.trimmedDescription
+                    typeText: param.type.trimmedDescription,
                 )
             }
         }

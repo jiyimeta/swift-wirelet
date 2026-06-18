@@ -29,131 +29,145 @@ import javax.inject.Inject
  * sources + CLI source files) so build cache works.
  */
 @CacheableTask
-abstract class GenerateWireletCodecs @Inject constructor(
-    private val execOperations: ExecOperations,
-) : DefaultTask() {
+abstract class GenerateWireletCodecs
+    @Inject
+    constructor(
+        private val execOperations: ExecOperations,
+    ) : DefaultTask() {
+        /**
+         * The schema source directories. Declared `@Internal` because tracking
+         * the full directory would pick up non-Swift sidecar files (e.g.
+         * `.wirelet-observable-jni.json`) written by other tasks. The effective
+         * Gradle input is [swiftSourceFiles], which filters to `.swift` files.
+         */
+        @get:Internal
+        abstract val schemaPaths: ConfigurableFileCollection
 
-    /**
-     * The schema source directories. Declared `@Internal` because tracking
-     * the full directory would pick up non-Swift sidecar files (e.g.
-     * `.wirelet-observable-jni.json`) written by other tasks. The effective
-     * Gradle input is [swiftSourceFiles], which filters to `.swift` files.
-     */
-    @get:Internal
-    abstract val schemaPaths: ConfigurableFileCollection
+        /**
+         * Swift source files derived from [schemaPaths], filtered to `.swift`
+         * only. This is the tracked `@InputFiles` for UP-TO-DATE and build-cache
+         * purposes, ensuring JSON sidecars co-located with the Swift sources do
+         * not trigger spurious re-runs.
+         */
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        val swiftSourceFiles: FileTree
+            get() = schemaPaths.asFileTree.matching { include("**/*.swift") }
 
-    /**
-     * Swift source files derived from [schemaPaths], filtered to `.swift`
-     * only. This is the tracked `@InputFiles` for UP-TO-DATE and build-cache
-     * purposes, ensuring JSON sidecars co-located with the Swift sources do
-     * not trigger spurious re-runs.
-     */
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    val swiftSourceFiles: FileTree
-        get() = schemaPaths.asFileTree.matching { include("**/*.swift") }
+        /**
+         * Filesystem location of the wirelet Swift package — used at exec time
+         * to fork `swift run --package-path …`. Marked `@Internal` because the
+         * raw directory cannot be a tracked input: `swift run` mutates volatile
+         * subtrees (`.build/`, `.swiftpm/`) on every invocation, which would
+         * defeat Gradle's UP-TO-DATE check. The version-tracked subset of this
+         * directory is fingerprinted through [cliSourceTree] instead.
+         */
+        @get:Internal
+        abstract val swiftPackagePath: DirectoryProperty
 
-    /**
-     * Filesystem location of the wirelet Swift package — used at exec time
-     * to fork `swift run --package-path …`. Marked `@Internal` because the
-     * raw directory cannot be a tracked input: `swift run` mutates volatile
-     * subtrees (`.build/`, `.swiftpm/`) on every invocation, which would
-     * defeat Gradle's UP-TO-DATE check. The version-tracked subset of this
-     * directory is fingerprinted through [cliSourceTree] instead.
-     */
-    @get:Internal
-    abstract val swiftPackagePath: DirectoryProperty
+        /**
+         * Version-tracking fingerprint of the wirelet Swift package: every
+         * source file under `Sources/`, plus the manifest. Excludes the
+         * build-product directories Swift Package Manager writes into
+         * (`.build/`, `.swiftpm/`) and the auto-generated `Package.resolved`.
+         * A bump to the CLI or any of its dependencies invalidates the cache;
+         * a fresh `swift run` invocation does not.
+         */
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        val cliSourceTree: FileTree
+            get() =
+                swiftPackagePath.asFileTree.matching {
+                    include("Sources/**")
+                    include("Package.swift")
+                }
 
-    /**
-     * Version-tracking fingerprint of the wirelet Swift package: every
-     * source file under `Sources/`, plus the manifest. Excludes the
-     * build-product directories Swift Package Manager writes into
-     * (`.build/`, `.swiftpm/`) and the auto-generated `Package.resolved`.
-     * A bump to the CLI or any of its dependencies invalidates the cache;
-     * a fresh `swift run` invocation does not.
-     */
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    val cliSourceTree: FileTree
-        get() = swiftPackagePath.asFileTree.matching {
-            include("Sources/**")
-            include("Package.swift")
-        }
+        @get:Input abstract val codecPackage: Property<String>
 
-    @get:Input abstract val codecPackage: Property<String>
-    @get:Input abstract val modelPackage: Property<String>
-    @get:Input abstract val serializationPackage: Property<String>
-    @get:Input abstract val includePackages: SetProperty<String>
-    @get:Input abstract val emitModels: Property<Boolean>
+        @get:Input abstract val modelPackage: Property<String>
 
-    @get:Input
-    @get:Optional
-    abstract val stripNameSuffix: Property<String>
+        @get:Input abstract val serializationPackage: Property<String>
 
-    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+        @get:Input abstract val includePackages: SetProperty<String>
 
-    @TaskAction
-    fun generate() {
-        val schemaDir = schemaPaths.files.singleOrNull()
-            ?: throw GradleException(
-                "wirelet: schemaPaths must resolve to exactly one directory " +
-                    "(got ${schemaPaths.files.size}). Multi-path support is " +
-                    "deferred to a later release."
-            )
-        if (!schemaDir.isDirectory) {
-            throw GradleException(
-                "wirelet: schemaPaths entry is not a directory: $schemaDir"
-            )
-        }
+        @get:Input abstract val emitModels: Property<Boolean>
 
-        val configFile = temporaryDir.resolve("codegen-config.json")
-        configFile.writeText(buildCodegenConfigJson())
+        @get:Input
+        @get:Optional
+        abstract val stripNameSuffix: Property<String>
 
-        val out = outputDir.get().asFile
-        out.mkdirs()
+        @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
-        val args = mutableListOf(
-            "run", "--package-path", swiftPackagePath.get().asFile.absolutePath,
-            "emit-wirelet-kotlin",
-            "--config", configFile.absolutePath,
-            "--source", schemaDir.absolutePath,
-            "--output", out.absolutePath,
-        )
-        for (pkg in includePackages.get()) {
-            args += "--include-package"
-            args += pkg
-        }
-
-        execOperations.exec {
-            commandLine("swift", *args.toTypedArray())
-        }
-    }
-
-    private fun buildCodegenConfigJson(): String {
-        val codec = codecPackage.get()
-        val model = modelPackage.getOrElse(codec)
-        val ser = serializationPackage.get()
-        val emit = emitModels.getOrElse(false)
-        val suffix = stripNameSuffix.orNull
-        val nameTransform = if (suffix.isNullOrEmpty()) {
-            """{ "identity": true }"""
-        } else {
-            """{ "stripSuffix": ${quote(suffix)} }"""
-        }
-        return """
-            {
-              "defaultModelPackage": ${quote(model)},
-              "defaultCodecPackage": ${quote(codec)},
-              "defaultSerializationPackage": ${quote(ser)},
-              "nameTransform": $nameTransform,
-              "rules": [],
-              "emitModels": $emit
+        @TaskAction
+        fun generate() {
+            val schemaDir =
+                schemaPaths.files.singleOrNull()
+                    ?: throw GradleException(
+                        "wirelet: schemaPaths must resolve to exactly one directory " +
+                            "(got ${schemaPaths.files.size}). Multi-path support is " +
+                            "deferred to a later release.",
+                    )
+            if (!schemaDir.isDirectory) {
+                throw GradleException(
+                    "wirelet: schemaPaths entry is not a directory: $schemaDir",
+                )
             }
-        """.trimIndent()
-    }
 
-    private fun quote(s: String): String {
-        val escaped = s.replace("\\", "\\\\").replace("\"", "\\\"")
-        return "\"$escaped\""
+            val configFile = temporaryDir.resolve("codegen-config.json")
+            configFile.writeText(buildCodegenConfigJson())
+
+            val out = outputDir.get().asFile
+            out.mkdirs()
+
+            val args =
+                mutableListOf(
+                    "run",
+                    "--package-path",
+                    swiftPackagePath.get().asFile.absolutePath,
+                    "emit-wirelet-kotlin",
+                    "--config",
+                    configFile.absolutePath,
+                    "--source",
+                    schemaDir.absolutePath,
+                    "--output",
+                    out.absolutePath,
+                )
+            for (pkg in includePackages.get()) {
+                args += "--include-package"
+                args += pkg
+            }
+
+            execOperations.exec {
+                commandLine("swift", *args.toTypedArray())
+            }
+        }
+
+        private fun buildCodegenConfigJson(): String {
+            val codec = codecPackage.get()
+            val model = modelPackage.getOrElse(codec)
+            val ser = serializationPackage.get()
+            val emit = emitModels.getOrElse(false)
+            val suffix = stripNameSuffix.orNull
+            val nameTransform =
+                if (suffix.isNullOrEmpty()) {
+                    """{ "identity": true }"""
+                } else {
+                    """{ "stripSuffix": ${quote(suffix)} }"""
+                }
+            return """
+                {
+                  "defaultModelPackage": ${quote(model)},
+                  "defaultCodecPackage": ${quote(codec)},
+                  "defaultSerializationPackage": ${quote(ser)},
+                  "nameTransform": $nameTransform,
+                  "rules": [],
+                  "emitModels": $emit
+                }
+                """.trimIndent()
+        }
+
+        private fun quote(s: String): String {
+            val escaped = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            return "\"$escaped\""
+        }
     }
-}

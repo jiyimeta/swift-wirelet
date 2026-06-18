@@ -13,7 +13,7 @@ let package = Package(
         .library(
             name: "ObservableCounterJNI",
             type: .dynamic,
-            targets: ["ObservableCounterJNI"]
+            targets: ["ObservableCounterJNI"],
         ),
     ],
     dependencies: [
@@ -31,7 +31,7 @@ let package = Package(
             plugins: [
                 .plugin(name: "WireletObservableBridges", package: "swift-wirelet"),
                 .plugin(name: "WireletProvidedBridges", package: "swift-wirelet"),
-            ]
+            ],
         ),
-    ]
+    ],
 )

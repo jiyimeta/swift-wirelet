@@ -6,7 +6,7 @@ import Testing
     let url = try #require(Bundle.module.url(
         forResource: "TodoStoreService",
         withExtension: "swift",
-        subdirectory: "Fixtures"
+        subdirectory: "Fixtures",
     ))
     let source = try String(contentsOf: url, encoding: .utf8)
 
@@ -20,12 +20,12 @@ import Testing
         ProvidedMethod(
             name: "add",
             parameters: [ProvidedParameter(label: "_", internalName: "item", typeText: "TodoItem")],
-            returnTypeText: nil
+            returnTypeText: nil,
         ),
         ProvidedMethod(
             name: "remove",
             parameters: [ProvidedParameter(label: "_", internalName: "id", typeText: "Int32")],
-            returnTypeText: nil
+            returnTypeText: nil,
         ),
     ])
 }
@@ -34,7 +34,7 @@ import Testing
     let url = try #require(Bundle.module.url(
         forResource: "MixedDecls",
         withExtension: "swift",
-        subdirectory: "Fixtures"
+        subdirectory: "Fixtures",
     ))
     let source = try String(contentsOf: url, encoding: .utf8)
 

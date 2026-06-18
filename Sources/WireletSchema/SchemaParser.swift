@@ -98,19 +98,16 @@ final class WireTypeVisitor: SyntaxVisitor {
     /// 1. Gather explicit `@WireFormatField(tag:)` tags.
     /// 2. Walk fields in declaration order; explicit tag wins, otherwise
     ///    pick the smallest counter ≥ 1 not in `reservedTags ∪ explicitTags`.
-    private func collectFields(
-        from `struct`: StructDeclSyntax,
-        reservedTags: Set<UInt32>,
-    ) -> [WireField] {
-        typealias Raw = (
-            name: String,
-            typeText: String,
-            wrappedTypeText: String,
-            isOptional: Bool,
-            explicitTag: UInt32?
-        )
-        var raws: [Raw] = []
+    private struct RawField {
+        let name: String
+        let typeText: String
+        let wrappedTypeText: String
+        let isOptional: Bool
+        let explicitTag: UInt32?
+    }
 
+    private func collectRawFields(from struct: StructDeclSyntax) -> [RawField] {
+        var raws: [RawField] = []
         for member in `struct`.memberBlock.members {
             guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
             let isStatic = varDecl.modifiers.contains { mod in
@@ -125,7 +122,7 @@ final class WireTypeVisitor: SyntaxVisitor {
                     let typeAnno = binding.typeAnnotation
                 else { continue }
                 let (isOpt, wrapped) = AttributeArgumentExtractor.unwrapOptional(typeAnno.type)
-                raws.append((
+                raws.append(RawField(
                     name: ident.identifier.text,
                     typeText: typeAnno.type.trimmedDescription,
                     wrappedTypeText: wrapped,
@@ -134,6 +131,14 @@ final class WireTypeVisitor: SyntaxVisitor {
                 ))
             }
         }
+        return raws
+    }
+
+    private func collectFields(
+        from struct: StructDeclSyntax,
+        reservedTags: Set<UInt32>,
+    ) -> [WireField] {
+        let raws = collectRawFields(from: `struct`)
 
         var explicitTags = Set<UInt32>()
         for raw in raws {

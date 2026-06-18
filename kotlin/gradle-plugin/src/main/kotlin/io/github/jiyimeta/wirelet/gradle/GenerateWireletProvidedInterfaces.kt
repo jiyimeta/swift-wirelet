@@ -11,7 +11,6 @@ import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -30,112 +29,126 @@ import javax.inject.Inject
  * sources + CLI source files + config inputs) so build cache works.
  */
 @CacheableTask
-abstract class GenerateWireletProvidedInterfaces @Inject constructor(
-    private val execOperations: ExecOperations,
-) : DefaultTask() {
+abstract class GenerateWireletProvidedInterfaces
+    @Inject
+    constructor(
+        private val execOperations: ExecOperations,
+    ) : DefaultTask() {
+        /**
+         * The schema source directories. Declared `@Internal` because tracking
+         * the full directory would pick up any non-Swift files in the same tree.
+         * The effective Gradle input is [swiftSourceFiles], which filters to
+         * `.swift` files only.
+         */
+        @get:Internal
+        abstract val schemaPaths: ConfigurableFileCollection
 
-    /**
-     * The schema source directories. Declared `@Internal` because tracking
-     * the full directory would pick up any non-Swift files in the same tree.
-     * The effective Gradle input is [swiftSourceFiles], which filters to
-     * `.swift` files only.
-     */
-    @get:Internal
-    abstract val schemaPaths: ConfigurableFileCollection
+        /**
+         * Swift source files derived from [schemaPaths], filtered to `.swift`
+         * only. This is the tracked `@InputFiles` for UP-TO-DATE and build-cache
+         * purposes.
+         */
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        val swiftSourceFiles: FileTree
+            get() = schemaPaths.asFileTree.matching { include("**/*.swift") }
 
-    /**
-     * Swift source files derived from [schemaPaths], filtered to `.swift`
-     * only. This is the tracked `@InputFiles` for UP-TO-DATE and build-cache
-     * purposes.
-     */
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    val swiftSourceFiles: FileTree
-        get() = schemaPaths.asFileTree.matching { include("**/*.swift") }
+        /**
+         * Filesystem location of the wirelet Swift package — used at exec time
+         * to fork `swift run --package-path …`. Marked `@Internal` because
+         * `swift run` mutates `.build/` / `.swiftpm/` on every invocation,
+         * defeating UP-TO-DATE checks. The version-tracked subset is
+         * fingerprinted through [cliSourceTree].
+         */
+        @get:Internal
+        abstract val swiftPackagePath: DirectoryProperty
 
-    /**
-     * Filesystem location of the wirelet Swift package — used at exec time
-     * to fork `swift run --package-path …`. Marked `@Internal` because
-     * `swift run` mutates `.build/` / `.swiftpm/` on every invocation,
-     * defeating UP-TO-DATE checks. The version-tracked subset is
-     * fingerprinted through [cliSourceTree].
-     */
-    @get:Internal
-    abstract val swiftPackagePath: DirectoryProperty
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        val cliSourceTree: FileTree
+            get() =
+                swiftPackagePath.asFileTree.matching {
+                    include("Sources/**")
+                    include("Package.swift")
+                }
 
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    val cliSourceTree: FileTree
-        get() = swiftPackagePath.asFileTree.matching {
-            include("Sources/**")
-            include("Package.swift")
-        }
+        @get:Input abstract val interfacePackage: Property<String>
 
-    @get:Input abstract val interfacePackage: Property<String>
-    @get:Input abstract val adapterPackage: Property<String>
-    @get:Input abstract val modelPackage: Property<String>
-    @get:Input abstract val codecPackage: Property<String>
-    @get:Input abstract val runtimePackage: Property<String>
-    @get:Input abstract val includePackages: SetProperty<String>
+        @get:Input abstract val adapterPackage: Property<String>
 
-    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+        @get:Input abstract val modelPackage: Property<String>
 
-    @TaskAction
-    fun generate() {
-        val schemaDir = schemaPaths.files.singleOrNull()
-            ?: throw GradleException(
-                "wirelet provided: schemaPaths must resolve to exactly one " +
-                    "directory (got ${schemaPaths.files.size}). Multi-path " +
-                    "support is deferred to a later release."
-            )
-        if (!schemaDir.isDirectory) {
-            throw GradleException(
-                "wirelet provided: schemaPaths entry is not a directory: $schemaDir"
-            )
-        }
+        @get:Input abstract val codecPackage: Property<String>
 
-        val configFile = temporaryDir.resolve("provided-codegen.json")
-        configFile.writeText(buildCodegenConfigJson())
+        @get:Input abstract val runtimePackage: Property<String>
 
-        val out = outputDir.get().asFile
-        out.mkdirs()
+        @get:Input abstract val includePackages: SetProperty<String>
 
-        val args = mutableListOf(
-            "run", "--package-path", swiftPackagePath.get().asFile.absolutePath,
-            "emit-wirelet-provided",
-            "--config", configFile.absolutePath,
-            "--source", schemaDir.absolutePath,
-            "--output", out.absolutePath,
-        )
-        for (pkg in includePackages.get()) {
-            args += "--include-package"
-            args += pkg
-        }
+        @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
-        execOperations.exec {
-            commandLine("swift", *args.toTypedArray())
-        }
-    }
-
-    private fun buildCodegenConfigJson(): String {
-        val iface = interfacePackage.get()
-        val adapter = adapterPackage.get()
-        val model = modelPackage.get()
-        val codec = codecPackage.get()
-        val rt = runtimePackage.get()
-        return """
-            {
-              "interfacePackage": ${quote(iface)},
-              "adapterPackage": ${quote(adapter)},
-              "modelPackage": ${quote(model)},
-              "codecPackage": ${quote(codec)},
-              "runtimePackage": ${quote(rt)}
+        @TaskAction
+        fun generate() {
+            val schemaDir =
+                schemaPaths.files.singleOrNull()
+                    ?: throw GradleException(
+                        "wirelet provided: schemaPaths must resolve to exactly one " +
+                            "directory (got ${schemaPaths.files.size}). Multi-path " +
+                            "support is deferred to a later release.",
+                    )
+            if (!schemaDir.isDirectory) {
+                throw GradleException(
+                    "wirelet provided: schemaPaths entry is not a directory: $schemaDir",
+                )
             }
-        """.trimIndent()
-    }
 
-    private fun quote(s: String): String {
-        val escaped = s.replace("\\", "\\\\").replace("\"", "\\\"")
-        return "\"$escaped\""
+            val configFile = temporaryDir.resolve("provided-codegen.json")
+            configFile.writeText(buildCodegenConfigJson())
+
+            val out = outputDir.get().asFile
+            out.mkdirs()
+
+            val args =
+                mutableListOf(
+                    "run",
+                    "--package-path",
+                    swiftPackagePath.get().asFile.absolutePath,
+                    "emit-wirelet-provided",
+                    "--config",
+                    configFile.absolutePath,
+                    "--source",
+                    schemaDir.absolutePath,
+                    "--output",
+                    out.absolutePath,
+                )
+            for (pkg in includePackages.get()) {
+                args += "--include-package"
+                args += pkg
+            }
+
+            execOperations.exec {
+                commandLine("swift", *args.toTypedArray())
+            }
+        }
+
+        private fun buildCodegenConfigJson(): String {
+            val iface = interfacePackage.get()
+            val adapter = adapterPackage.get()
+            val model = modelPackage.get()
+            val codec = codecPackage.get()
+            val rt = runtimePackage.get()
+            return """
+                {
+                  "interfacePackage": ${quote(iface)},
+                  "adapterPackage": ${quote(adapter)},
+                  "modelPackage": ${quote(model)},
+                  "codecPackage": ${quote(codec)},
+                  "runtimePackage": ${quote(rt)}
+                }
+                """.trimIndent()
+        }
+
+        private fun quote(s: String): String {
+            val escaped = s.replace("\\", "\\\\").replace("\"", "\\\"")
+            return "\"$escaped\""
+        }
     }
-}

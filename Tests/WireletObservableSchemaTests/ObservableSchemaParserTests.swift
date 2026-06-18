@@ -6,7 +6,7 @@ import Testing
     let url = try #require(Bundle.module.url(
         forResource: "CounterVM",
         withExtension: "swift",
-        subdirectory: "Fixtures"
+        subdirectory: "Fixtures",
     ))
     let source = try String(contentsOf: url, encoding: .utf8)
 
@@ -20,7 +20,7 @@ import Testing
             name: "count",
             swiftTypeText: "Int32",
             kind: .primitive,
-            isMutable: true
+            isMutable: true,
         ),
     ])
     #expect(vm.methods == [
@@ -32,7 +32,7 @@ import Testing
     let url = try #require(Bundle.module.url(
         forResource: "TodoListVM",
         withExtension: "swift",
-        subdirectory: "Fixtures"
+        subdirectory: "Fixtures",
     ))
     let source = try String(contentsOf: url, encoding: .utf8)
 
@@ -49,25 +49,25 @@ import Testing
             name: "items",
             swiftTypeText: "[TodoItem]",
             kind: .wireFormatArray(elementTypeName: "TodoItem"),
-            isMutable: true
+            isMutable: true,
         ),
         ObservableProperty(
             name: "filter",
             swiftTypeText: "String",
             kind: .string,
-            isMutable: true
+            isMutable: true,
         ),
         ObservableProperty(
             name: "totalCount",
             swiftTypeText: "Int32",
             kind: .primitive,
-            isMutable: true
+            isMutable: true,
         ),
         ObservableProperty(
             name: "pinned",
             swiftTypeText: "TodoItem?",
             kind: .optionalWireFormat(typeName: "TodoItem"),
-            isMutable: true
+            isMutable: true,
         ),
     ])
     #expect(vm.methods == [
@@ -78,7 +78,7 @@ import Testing
     ])
 }
 
-@Test func parsesInjectedInitParameters() throws {
+@Test func parsesInjectedInitParameters() {
     let source = """
     import Observation
     import WireletObservable
@@ -100,7 +100,7 @@ import Testing
     ])
 }
 
-@Test func noArgInitYieldsEmptyInitParameters() throws {
+@Test func noArgInitYieldsEmptyInitParameters() {
     let source = """
     import Observation
     import WireletObservable
@@ -117,7 +117,7 @@ import Testing
     #expect(schema.viewModels[0].initParameters == [])
 }
 
-@Test func parsesMethodReturnTypes() throws {
+@Test func parsesMethodReturnTypes() {
     let source = """
     import Observation
     import WireletObservable
@@ -141,7 +141,7 @@ import Testing
             parameters: [
                 ObservableMethodParameter(label: "_", internalName: "a", typeText: "String"),
             ],
-            returnTypeText: "String"
+            returnTypeText: "String",
         ),
         ObservableMethod(name: "bar", parameters: [], returnTypeText: nil),
         ObservableMethod(name: "baz", parameters: [], returnTypeText: nil),
@@ -154,7 +154,7 @@ import Testing
     let url = try #require(Bundle.module.url(
         forResource: "MixedDecls",
         withExtension: "swift",
-        subdirectory: "Fixtures"
+        subdirectory: "Fixtures",
     ))
     let source = try String(contentsOf: url, encoding: .utf8)
 

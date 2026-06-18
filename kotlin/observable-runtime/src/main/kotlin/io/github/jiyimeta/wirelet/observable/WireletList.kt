@@ -31,13 +31,19 @@ import io.github.jiyimeta.wirelet.BinaryWriter
  * need a retrofitted supertype.
  */
 object WireletList {
-    fun <T> decode(bytes: ByteArray, decodePayload: (BinaryReader) -> T): List<T> {
+    fun <T> decode(
+        bytes: ByteArray,
+        decodePayload: (BinaryReader) -> T,
+    ): List<T> {
         val r = BinaryReader(bytes)
         val count = r.readVarint().toInt()
         return List(count) { r.readLengthPrefixed { decodePayload(it) } }
     }
 
-    fun <T> encode(value: List<T>, encodePayload: (T, BinaryWriter) -> Unit): ByteArray {
+    fun <T> encode(
+        value: List<T>,
+        encodePayload: (T, BinaryWriter) -> Unit,
+    ): ByteArray {
         val w = BinaryWriter()
         w.writeVarint(value.size.toLong())
         for (element in value) {

@@ -1,7 +1,7 @@
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
-import XCTest
 @testable import WireletProvidedMacros
+import XCTest
 
 private let macroSpecs: [String: any Macro.Type] = [
     "WireletProvided": WireletProvidedMacro.self,
@@ -23,7 +23,7 @@ final class WireletProvidedMacroTests: XCTestCase {
                 func add(_ item: TodoItem)
             }
             """,
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 
@@ -41,7 +41,7 @@ final class WireletProvidedMacroTests: XCTestCase {
             diagnostics: [
                 .init(message: "@WireletProvided can only be applied to a protocol.", line: 1, column: 1),
             ],
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 }

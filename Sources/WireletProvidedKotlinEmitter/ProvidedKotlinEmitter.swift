@@ -1,5 +1,5 @@
-import WireletKotlinEmitter   // KotlinFile
-import WireletProvidedSchema  // ProvidedSchema
+import WireletKotlinEmitter // KotlinFile
+import WireletProvidedSchema // ProvidedSchema
 
 /// Errors surfaced while rendering a `@WireletProvided` Kotlin bridge.
 public enum ProvidedKotlinEmitterError: Error, Equatable {

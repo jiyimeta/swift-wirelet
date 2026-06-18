@@ -25,13 +25,13 @@ enum TrackBridgeEmitter {
 
     private static func renderPrimitiveBridge(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
         let jniType = primitiveJNIType(property.swiftTypeText)
         let returnExpr: String = {
             switch property.swiftTypeText {
             case "Bool": return "jboolean(snapshot ? 1 : 0)"
-            default:    return "\(jniType)(snapshot)"
+            default: return "\(jniType)(snapshot)"
             }
         }()
         return """
@@ -54,9 +54,9 @@ enum TrackBridgeEmitter {
 
     private static func renderStringBridge(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -79,9 +79,9 @@ enum TrackBridgeEmitter {
 
     private static func renderWireFormatBridge(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -104,9 +104,9 @@ enum TrackBridgeEmitter {
 
     private static func renderWireFormatArrayBridge(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -129,9 +129,9 @@ enum TrackBridgeEmitter {
 
     private static func renderOptionalBridge(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -157,9 +157,9 @@ enum TrackBridgeEmitter {
 
     private static func renderOptionalStringTrackBridge(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_track")
         public func __\(className)_\(property.name)_track_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,

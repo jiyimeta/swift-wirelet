@@ -38,11 +38,11 @@ public protocol WireFormatDecodable {
     init(from reader: inout WireFormatReader) throws
 }
 
-// Default implementations bridge the legacy single-method protocol shape
-// to the TLV-aware shape. Tasks 2.4 / 2.5 migrate the Enum / Choice macros
-// onto the new requirements explicitly; until then they continue to emit
-// only the legacy `encode(into:)` / `init(from:)` bodies, and the defaults
-// below let those conformances satisfy the protocol.
+/// Default implementations bridge the legacy single-method protocol shape
+/// to the TLV-aware shape. Tasks 2.4 / 2.5 migrate the Enum / Choice macros
+/// onto the new requirements explicitly; until then they continue to emit
+/// only the legacy `encode(into:)` / `init(from:)` bodies, and the defaults
+/// below let those conformances satisfy the protocol.
 extension WireFormatEncodable {
     public func encodePayload(into writer: inout WireFormatWriter) {
         encode(into: &writer)
@@ -77,10 +77,10 @@ extension WireFormatDecodable {
 
 /// The 3-bit wire-type field stored in the low bits of every tag varint.
 public enum WireType: UInt8, Sendable {
-    case varint = 0          // Int / UInt / Bool / enum raw
-    case fixed64 = 1         // Double, fixed Int64
+    case varint = 0 // Int / UInt / Bool / enum raw
+    case fixed64 = 1 // Double, fixed Int64
     case lengthDelimited = 2 // String / Data / Array / Dictionary / nested struct / choice
-    case fixed32 = 5         // Float, fixed Int32
+    case fixed32 = 5 // Float, fixed Int32
 }
 
 /// Errors thrown while decoding wire-format payloads.
@@ -134,7 +134,7 @@ public enum KotlinTarget: Sendable {
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormat() = #externalMacro(
     module: "WireletMacros",
@@ -145,7 +145,7 @@ public macro WireFormat() = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormat(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",
@@ -159,7 +159,7 @@ public macro WireFormat(kotlin: KotlinTarget) = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormat(reservedTags: [UInt32]) = #externalMacro(
     module: "WireletMacros",
@@ -170,7 +170,7 @@ public macro WireFormat(reservedTags: [UInt32]) = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormat(reservedTags: [UInt32], kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",
@@ -204,7 +204,7 @@ public macro WireFormatField(tag: UInt32) = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormatEnum() = #externalMacro(
     module: "WireletMacros",
@@ -215,7 +215,7 @@ public macro WireFormatEnum() = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormatEnum(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",
@@ -242,7 +242,7 @@ public macro WireFormatEnum(kotlin: KotlinTarget) = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormatChoice() = #externalMacro(
     module: "WireletMacros",
@@ -253,7 +253,7 @@ public macro WireFormatChoice() = #externalMacro(
     extension,
     conformances: WireFormatEncodable, WireFormatDecodable,
     names: named(wireType), named(encode(into:)), named(encodePayload(into:)),
-           named(init(from:)), named(init(decodingPayload:))
+    named(init(from:)), named(init(decodingPayload:))
 )
 public macro WireFormatChoice(kotlin: KotlinTarget) = #externalMacro(
     module: "WireletMacros",

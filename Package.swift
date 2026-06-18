@@ -44,11 +44,11 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "Wirelet",
-            dependencies: ["WireletMacros"]
+            dependencies: ["WireletMacros"],
         ),
         .macro(
             name: "WireletObservableMacros",
@@ -57,7 +57,7 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "WireletObservable",
@@ -65,7 +65,7 @@ let package = Package(
                 "Wirelet",
                 "WireletObservableMacros",
                 .product(name: "SwiftJavaJNICore", package: "swift-java-jni-core"),
-            ]
+            ],
         ),
         .macro(
             name: "WireletProvidedMacros",
@@ -74,63 +74,63 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "WireletProvided",
             dependencies: [
                 "WireletProvidedMacros",
-            ]
+            ],
         ),
         .target(
             name: "WireletSchema",
             dependencies: [
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "WireletKotlinEmitter",
-            dependencies: ["WireletSchema"]
+            dependencies: ["WireletSchema"],
         ),
         .executableTarget(
             name: "EmitWireletKotlin",
-            dependencies: ["WireletSchema", "WireletKotlinEmitter"]
+            dependencies: ["WireletSchema", "WireletKotlinEmitter"],
         ),
         .target(
             name: "WireletObservableSchema",
             dependencies: [
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "WireletProvidedSchema",
             dependencies: [
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "WireletObservableKotlinEmitter",
             dependencies: [
                 "WireletObservableSchema",
                 "WireletKotlinEmitter",
-            ]
+            ],
         ),
         .executableTarget(
             name: "EmitWireletObservable",
             dependencies: [
                 "WireletObservableSchema",
                 "WireletObservableKotlinEmitter",
-            ]
+            ],
         ),
         .executableTarget(
             name: "EmitWireletProvided",
             dependencies: [
                 "WireletProvidedSchema",
                 "WireletProvidedKotlinEmitter",
-            ]
+            ],
         ),
         .target(
             name: "WireletObservableSwiftBridgesEmitter",
@@ -138,14 +138,14 @@ let package = Package(
                 "WireletObservableSchema",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
+            ],
         ),
         .target(
             name: "WireletProvidedSwiftBridgesEmitter",
             dependencies: [
                 "WireletProvidedSchema",
                 "WireletObservableSchema",
-            ]
+            ],
         ),
         .target(
             name: "WireletProvidedKotlinEmitter",
@@ -153,29 +153,29 @@ let package = Package(
                 "WireletProvidedSchema",
                 "WireletObservableSchema",
                 "WireletKotlinEmitter",
-            ]
+            ],
         ),
         .executableTarget(
             name: "EmitWireletObservableSwiftBridges",
-            dependencies: ["WireletObservableSwiftBridgesEmitter"]
+            dependencies: ["WireletObservableSwiftBridgesEmitter"],
         ),
         .plugin(
             name: "WireletObservableBridges",
             capability: .buildTool(),
-            dependencies: ["EmitWireletObservableSwiftBridges"]
+            dependencies: ["EmitWireletObservableSwiftBridges"],
         ),
         .executableTarget(
             name: "EmitWireletProvidedSwiftBridges",
-            dependencies: ["WireletProvidedSwiftBridgesEmitter"]
+            dependencies: ["WireletProvidedSwiftBridgesEmitter"],
         ),
         .plugin(
             name: "WireletProvidedBridges",
             capability: .buildTool(),
-            dependencies: ["EmitWireletProvidedSwiftBridges"]
+            dependencies: ["EmitWireletProvidedSwiftBridges"],
         ),
         .testTarget(
             name: "WireletRuntimeTests",
-            dependencies: ["Wirelet"]
+            dependencies: ["Wirelet"],
         ),
         .testTarget(
             name: "WireletMacrosTests",
@@ -183,30 +183,30 @@ let package = Package(
                 "WireletMacros",
                 "Wirelet",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ]
+            ],
         ),
         .testTarget(
             name: "WireletSchemaTests",
             dependencies: ["WireletSchema"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "WireletKotlinEmitterTests",
             dependencies: ["WireletKotlinEmitter", "WireletSchema"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "EmitWireletKotlinTests",
             dependencies: ["EmitWireletKotlin", "WireletKotlinEmitter", "WireletSchema"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "ConformanceTests",
-            dependencies: ["Wirelet"]
+            dependencies: ["Wirelet"],
         ),
         .testTarget(
             name: "WireletObservableTests",
-            dependencies: ["WireletObservable", "Wirelet"]
+            dependencies: ["WireletObservable", "Wirelet"],
         ),
         .testTarget(
             name: "WireletObservableMacrosTests",
@@ -214,7 +214,7 @@ let package = Package(
                 "WireletObservableMacros",
                 "WireletObservable",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ]
+            ],
         ),
         .testTarget(
             name: "WireletProvidedMacrosTests",
@@ -222,21 +222,21 @@ let package = Package(
                 "WireletProvidedMacros",
                 "WireletProvided",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ]
+            ],
         ),
         .testTarget(
             name: "WireletProvidedTests",
-            dependencies: ["WireletProvided", "Wirelet"]
+            dependencies: ["WireletProvided", "Wirelet"],
         ),
         .testTarget(
             name: "WireletObservableSchemaTests",
             dependencies: ["WireletObservableSchema"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "WireletProvidedSchemaTests",
             dependencies: ["WireletProvidedSchema"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "WireletObservableKotlinEmitterTests",
@@ -244,7 +244,7 @@ let package = Package(
                 "WireletObservableKotlinEmitter",
                 "WireletObservableSchema",
             ],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "EmitWireletObservableTests",
@@ -253,7 +253,7 @@ let package = Package(
                 "WireletObservableKotlinEmitter",
                 "WireletObservableSchema",
             ],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "EmitWireletProvidedTests",
@@ -262,19 +262,19 @@ let package = Package(
                 "WireletProvidedKotlinEmitter",
                 "WireletProvidedSchema",
             ],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
         ),
         .testTarget(
             name: "WireletObservableSwiftBridgesEmitterTests",
-            dependencies: ["WireletObservableSwiftBridgesEmitter"]
+            dependencies: ["WireletObservableSwiftBridgesEmitter"],
         ),
         .testTarget(
             name: "WireletProvidedSwiftBridgesEmitterTests",
-            dependencies: ["WireletProvidedSwiftBridgesEmitter"]
+            dependencies: ["WireletProvidedSwiftBridgesEmitter"],
         ),
         .testTarget(
             name: "WireletProvidedKotlinEmitterTests",
-            dependencies: ["WireletProvidedKotlinEmitter"]
+            dependencies: ["WireletProvidedKotlinEmitter"],
         ),
-    ]
+    ],
 )

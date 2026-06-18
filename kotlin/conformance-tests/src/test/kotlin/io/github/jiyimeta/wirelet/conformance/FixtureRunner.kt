@@ -7,9 +7,6 @@
 
 package io.github.jiyimeta.wirelet.conformance
 
-import io.github.jiyimeta.wirelet.conformance.model.MapHolder
-import io.github.jiyimeta.wirelet.conformance.model.OptionalHolder
-import io.github.jiyimeta.wirelet.conformance.model.Primitives
 import io.github.jiyimeta.wirelet.conformance.model.ShapeChoice
 import io.github.jiyimeta.wirelet.conformance.serialization.MapHolderCodec
 import io.github.jiyimeta.wirelet.conformance.serialization.OptionalHolderCodec
@@ -24,8 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class FixtureRunner {
-    private fun fixture(name: String): ByteArray =
-        File("fixtures/$name").readBytes()
+    private fun fixture(name: String): ByteArray = File("fixtures/$name").readBytes()
 
     @Test fun primitives() {
         val bytes = fixture("primitives_v1.bin")

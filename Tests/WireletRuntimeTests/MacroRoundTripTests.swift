@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 @testable import Wirelet
 
 @WireFormat
@@ -39,7 +39,7 @@ struct MacroRoundTripPerson {
     writer.writeLengthPrefixed { inner in
         inner.writeTag(tag: 1, wireType: .varint)
         Int32(7).encodePayload(into: &inner)
-        inner.writeTag(tag: 3, wireType: .varint)        // unknown
+        inner.writeTag(tag: 3, wireType: .varint) // unknown
         inner.writeVarint(999)
         inner.writeTag(tag: 2, wireType: .varint)
         Int32(11).encodePayload(into: &inner)

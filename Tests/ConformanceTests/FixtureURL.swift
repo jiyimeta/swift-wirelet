@@ -10,9 +10,9 @@ enum FixtureLocator {
         // Walk up two components → package root.
         let thisFile = URL(fileURLWithPath: #filePath)
         let packageRoot = thisFile
-            .deletingLastPathComponent()  // ConformanceTests/
-            .deletingLastPathComponent()  // Tests/
-            .deletingLastPathComponent()  // swift-wirelet/
+            .deletingLastPathComponent() // ConformanceTests/
+            .deletingLastPathComponent() // Tests/
+            .deletingLastPathComponent() // swift-wirelet/
         return packageRoot
             .appendingPathComponent("kotlin", isDirectory: true)
             .appendingPathComponent("conformance-tests", isDirectory: true)

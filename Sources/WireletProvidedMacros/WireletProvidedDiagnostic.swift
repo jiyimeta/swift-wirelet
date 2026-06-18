@@ -6,7 +6,11 @@ enum WireletProvidedDiagnostic: String, DiagnosticMessage {
     var diagnosticID: MessageID {
         MessageID(domain: "WireletProvided", id: rawValue)
     }
-    var severity: DiagnosticSeverity { .error }
+
+    var severity: DiagnosticSeverity {
+        .error
+    }
+
     var message: String {
         switch self {
         case .notAProtocol:

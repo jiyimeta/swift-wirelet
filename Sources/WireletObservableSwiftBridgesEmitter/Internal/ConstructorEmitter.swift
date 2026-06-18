@@ -4,7 +4,7 @@ import WireletObservableSchema
 enum ConstructorEmitter {
     static func renderConstructor(
         className: String,
-        initParameters: [ObservableInitParameter]
+        initParameters: [ObservableInitParameter],
     ) -> String {
         guard !initParameters.isEmpty else {
             // No-arg path — backward compatible, byte-for-byte unchanged.
@@ -21,11 +21,11 @@ enum ConstructorEmitter {
 
         // Injected path: one `jobject?` adapter per init parameter, each
         // wrapped into its `<Type>WireletProxy` (Phase 2) before construction.
-        let argParams = initParameters.enumerated()
-            .map { idx, _ in "    _ arg\(idx): jobject?" }
+        let argParams = initParameters.indices
+            .map { idx in "    _ arg\(idx): jobject?" }
             .joined(separator: ",\n")
-        let guards = initParameters.enumerated()
-            .map { idx, _ in
+        let guards = initParameters.indices
+            .map { idx in
                 "    guard let obj\(idx) = JObject(env: env, jobject: arg\(idx)) else { return 0 }"
             }
             .joined(separator: "\n")
@@ -51,7 +51,7 @@ enum ConstructorEmitter {
     }
 
     static func renderDestructor(className: String) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_release")
         public func __\(className)_release_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,

@@ -16,7 +16,7 @@ public enum ObservationTrackingHelper {
     public static func read<Subject: AnyObject, Value>(
         _ keyPath: KeyPath<Subject, Value>,
         on subject: Subject,
-        onChange: @escaping @Sendable () -> Void
+        onChange: @escaping @Sendable () -> Void,
     ) -> Value {
         var snapshot: Value?
         withObservationTracking {
@@ -24,7 +24,9 @@ public enum ObservationTrackingHelper {
         } onChange: {
             onChange()
         }
-        precondition(snapshot != nil, "withObservationTracking apply closure not called synchronously")
-        return snapshot!
+        guard let snapshot else {
+            preconditionFailure("withObservationTracking apply closure not called synchronously")
+        }
+        return snapshot
     }
 }

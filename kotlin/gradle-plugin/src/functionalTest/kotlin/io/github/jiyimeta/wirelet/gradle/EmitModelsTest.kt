@@ -7,10 +7,13 @@ import kotlin.test.assertTrue
 
 class EmitModelsTest {
     @Test
-    fun emitModelsTrueGeneratesDataClass(@TempDir tempDir: File) {
+    fun emitModelsTrueGeneratesDataClass(
+        @TempDir tempDir: File,
+    ) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 wirelet {
                     swiftPackagePath.set(file("${wireletRepoRoot.absolutePath}"))
                     sources.register("main") {
@@ -21,12 +24,13 @@ class EmitModelsTest {
                     }
                 }
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Point.swift",
-            content = """
+            content =
+                """
                 import Wirelet
 
                 @WireFormat
@@ -38,14 +42,15 @@ class EmitModelsTest {
                         self.y = y
                     }
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
         runner(tempDir, "generateWireletCodecsMain").build()
 
-        val model = tempDir.resolve(
-            "build/generated/wirelet/main/kotlin/com/example/fixture/model/Point.kt",
-        )
+        val model =
+            tempDir.resolve(
+                "build/generated/wirelet/main/kotlin/com/example/fixture/model/Point.kt",
+            )
         assertTrue(model.exists(), "model file not generated at $model")
         val content = model.readText()
         assertTrue(content.contains("public data class Point("), "expected `data class Point(`; got:\n$content")

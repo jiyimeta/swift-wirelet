@@ -26,32 +26,44 @@ func regenerateFixtures() throws {
     let prim = Primitives(u32: 7, i32: -3, f: 1.5, d: 2.25, s: "hi", b: true)
     try prim.encodeToData().write(to: dir.appendingPathComponent("primitives_v1.bin"))
     try #"{"u32":7,"i32":-3,"f":1.5,"d":2.25,"s":"hi","b":true}"#
-        .write(to: dir.appendingPathComponent("primitives_v1.json"),
-               atomically: true, encoding: .utf8)
+        .write(
+            to: dir.appendingPathComponent("primitives_v1.json"),
+            atomically: true,
+            encoding: .utf8,
+        )
 
     // ------- optional_present_v1 -------
     let optPresent = OptionalHolder(a: 5, b: 42)
     try optPresent.encodeToData()
         .write(to: dir.appendingPathComponent("optional_present_v1.bin"))
     try #"{"a":5,"b":42}"#
-        .write(to: dir.appendingPathComponent("optional_present_v1.json"),
-               atomically: true, encoding: .utf8)
+        .write(
+            to: dir.appendingPathComponent("optional_present_v1.json"),
+            atomically: true,
+            encoding: .utf8,
+        )
 
     // ------- optional_absent_v1 -------
     let optAbsent = OptionalHolder(a: 5, b: nil)
     try optAbsent.encodeToData()
         .write(to: dir.appendingPathComponent("optional_absent_v1.bin"))
     try #"{"a":5,"b":null}"#
-        .write(to: dir.appendingPathComponent("optional_absent_v1.json"),
-               atomically: true, encoding: .utf8)
+        .write(
+            to: dir.appendingPathComponent("optional_absent_v1.json"),
+            atomically: true,
+            encoding: .utf8,
+        )
 
     // ------- choice_v1 -------
     let choice = ShapeChoice.point(3, -7)
     try choice.encodeToData()
         .write(to: dir.appendingPathComponent("choice_v1.bin"))
     try #"{"kind":"point","args":[3,-7]}"#
-        .write(to: dir.appendingPathComponent("choice_v1.json"),
-               atomically: true, encoding: .utf8)
+        .write(
+            to: dir.appendingPathComponent("choice_v1.json"),
+            atomically: true,
+            encoding: .utf8,
+        )
 
     // ------- forward_compat_v2_to_v1 -------
     // v2 encodes (a, b, c); decoded with v1's schema, tag 3 is skipped.
@@ -59,8 +71,11 @@ func regenerateFixtures() throws {
     try v2.encodeToData()
         .write(to: dir.appendingPathComponent("forward_compat_v2_to_v1.bin"))
     try #"{"a":5,"b":42}"#
-        .write(to: dir.appendingPathComponent("forward_compat_v2_to_v1.json"),
-               atomically: true, encoding: .utf8)
+        .write(
+            to: dir.appendingPathComponent("forward_compat_v2_to_v1.json"),
+            atomically: true,
+            encoding: .utf8,
+        )
 
     // ------- map_multi_v1 -------
     // Multi-entry Map; entries are canonicalised by encoded-key bytes
@@ -71,14 +86,21 @@ func regenerateFixtures() throws {
     try mapMulti.encodeToData()
         .write(to: dir.appendingPathComponent("map_multi_v1.bin"))
     try #"{"m":{"alpha":10,"mango":7,"zeta":-1}}"#
-        .write(to: dir.appendingPathComponent("map_multi_v1.json"),
-               atomically: true, encoding: .utf8)
+        .write(
+            to: dir.appendingPathComponent("map_multi_v1.json"),
+            atomically: true,
+            encoding: .utf8,
+        )
 
-    // ------- observable_burst_v1 -------
-    // Mirrors the `examples/observable-counter/` example's `add ×10` burst.
-    // Wire shape matches Kotlin's `WireletList.decode`:
-    //   [ varint count ] [ length-prefixed payload ]×count.
-    let items: [TodoItem] = (1...10).map {
+    try writeObservableBurstFixture(in: dir)
+}
+
+/// ------- observable_burst_v1 -------
+/// Mirrors the `examples/observable-counter/` example's `add ×10` burst.
+/// Wire shape matches Kotlin's `WireletList.decode`:
+///   [ varint count ] [ length-prefixed payload ]×count.
+private func writeObservableBurstFixture(in dir: URL) throws {
+    let items: [TodoItem] = (1 ... 10).map {
         TodoItem(id: Int32($0), title: "task #\($0)", done: false)
     }
     var burstWriter = WireFormatWriter()
@@ -92,9 +114,10 @@ func regenerateFixtures() throws {
         .write(to: dir.appendingPathComponent("observable_burst_v1.bin"))
     let burstJSON = #"{"items":["# +
         items.map { #"{"id":\#($0.id),"title":"\#($0.title)","done":\#($0.done)}"# }
-            .joined(separator: ",") +
+        .joined(separator: ",") +
         "]}"
     try burstJSON.write(
         to: dir.appendingPathComponent("observable_burst_v1.json"),
-        atomically: true, encoding: .utf8)
+        atomically: true, encoding: .utf8,
+    )
 }

@@ -9,7 +9,11 @@ enum WireletObservableDiagnostic: String, DiagnosticMessage {
     var diagnosticID: MessageID {
         MessageID(domain: "WireletObservable", id: rawValue)
     }
-    var severity: DiagnosticSeverity { .error }
+
+    var severity: DiagnosticSeverity {
+        .error
+    }
+
     var message: String {
         switch self {
         case .notAFinalClass:
@@ -17,9 +21,11 @@ enum WireletObservableDiagnostic: String, DiagnosticMessage {
         case .missingObservableAttribute:
             return "@WireletObservable must be paired with @Observable."
         case .unsupportedPropertyType:
-            return "Unsupported property type for @WireletObservable. Use a primitive, String, @WireFormat type, or Optional/Array thereof."
+            let supported = "Use a primitive, String, @WireFormat type, or Optional/Array thereof."
+            return "Unsupported property type for @WireletObservable. \(supported)"
         case .unsupportedExposedMethodSignature:
-            return "@WireletExpose method parameter must be a primitive, String, @WireFormat type, or Optional / Array thereof."
+            let supported = "a primitive, String, @WireFormat type, or Optional / Array thereof."
+            return "@WireletExpose method parameter must be \(supported)"
         }
     }
 }

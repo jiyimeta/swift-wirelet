@@ -51,11 +51,11 @@ guard let args = CLIArguments.parse(CommandLine.arguments) else {
 let sourceURL = URL(fileURLWithPath: args.sourceDir, isDirectory: true)
 let outputURL = URL(fileURLWithPath: args.outputDir, isDirectory: true)
 
-// Collect all .swift files under the source directory.
+/// Collect all .swift files under the source directory.
 var swiftFiles: [URL] = []
 if let enumerator = FileManager.default.enumerator(
     at: sourceURL,
-    includingPropertiesForKeys: [.isRegularFileKey]
+    includingPropertiesForKeys: [.isRegularFileKey],
 ) {
     for case let url as URL in enumerator {
         guard url.pathExtension == "swift" else { continue }
@@ -63,7 +63,7 @@ if let enumerator = FileManager.default.enumerator(
     }
 }
 
-// Load optional JNI registration sidecar.
+/// Load optional JNI registration sidecar.
 var jniConfig: JNIRegistrationConfig?
 if let jniConfigPath = args.jniConfigPath {
     let jniConfigURL = URL(fileURLWithPath: jniConfigPath)

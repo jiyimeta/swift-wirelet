@@ -46,7 +46,7 @@ public struct WireFormatChoiceMacro: ExtensionMacro {
         // values — @WireFormatEnum (raw-value backed) is the more
         // idiomatic choice for plain enums and produces a smaller wire
         // payload (no length wrapper around just the discriminator).
-        if !cases.isEmpty, cases.allSatisfy({ $0.parameters.isEmpty }) {
+        if !cases.isEmpty, cases.allSatisfy(\.parameters.isEmpty) {
             context.diagnose(Diagnostic(
                 node: Syntax(node),
                 message: WireFormatDiagnostic.choiceWithoutAssociatedValues,
@@ -187,9 +187,9 @@ public struct WireFormatChoiceMacro: ExtensionMacro {
                 lines.append("    }")
                 for (valueIndex, param) in c.parameters.enumerated() {
                     let tag = valueIndex + 1
-                    lines.append(
-                        "    guard let _arg\(valueIndex) else { throw WireFormatError.unknownTag(tag: \(tag), wireType: \(param.typeText).wireType) }",
-                    )
+                    let throwExpr =
+                        "throw WireFormatError.unknownTag(tag: \(tag), wireType: \(param.typeText).wireType)"
+                    lines.append("    guard let _arg\(valueIndex) else { \(throwExpr) }")
                 }
                 let construction = c.parameters.enumerated().map { idx, param -> String in
                     if let label = param.label {

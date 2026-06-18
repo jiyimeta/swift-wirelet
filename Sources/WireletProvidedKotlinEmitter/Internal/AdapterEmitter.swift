@@ -1,5 +1,5 @@
-import WireletKotlinEmitter    // KotlinFile
-import WireletProvidedSchema   // ProvidedService, ProvidedMethod, ProvidedParameter
+import WireletKotlinEmitter // KotlinFile
+import WireletProvidedSchema // ProvidedService, ProvidedMethod, ProvidedParameter
 
 /// Renders one `<Service>.kt` file per `@WireletProvided` protocol.
 /// The file contains both the friendly `interface` and the
@@ -12,7 +12,7 @@ enum AdapterEmitter {
     ///   is unsupported (e.g. optionals in v1).
     static func emit(
         service: ProvidedService,
-        config: ProvidedCodegenConfig
+        config: ProvidedCodegenConfig,
     ) throws -> KotlinFile {
         let path = config.interfacePackage.replacingOccurrences(of: ".", with: "/")
             + "/\(service.name).kt"
@@ -24,7 +24,7 @@ enum AdapterEmitter {
 
         for method in service.methods {
             let (iface, adapter, imports) = try renderMethod(
-                method: method, service: service, config: config
+                method: method, service: service, config: config,
             )
             interfaceLines.append("    \(iface)")
             adapterLines.append(adapter)
@@ -61,7 +61,7 @@ enum AdapterEmitter {
     private static func renderMethod(
         method: ProvidedMethod,
         service: ProvidedService,
-        config: ProvidedCodegenConfig
+        config: ProvidedCodegenConfig,
     ) throws -> (interfaceLine: String, adapterMethod: String, imports: Set<String>) {
         var paramInfos: [(pname: String, info: ProvidedKotlinTypeMap.TypeInfo)] = []
         var allImports: Set<String> = []
@@ -72,7 +72,7 @@ enum AdapterEmitter {
                 forTypeText: param.typeText,
                 service: service.name,
                 method: method.name,
-                config: config
+                config: config,
             )
             paramInfos.append((pname, info))
             allImports.formUnion(info.imports)
@@ -87,7 +87,7 @@ enum AdapterEmitter {
                 forTypeText: returnType,
                 service: service.name,
                 method: method.name,
-                config: config
+                config: config,
             )
             allImports.formUnion(retInfo.imports)
             interfaceLine = "fun \(method.name)(\(friendlyParams)): \(retInfo.friendlyType)"
@@ -117,7 +117,7 @@ enum AdapterEmitter {
                 forTypeText: returnType,
                 service: service.name,
                 method: method.name,
-                config: config
+                config: config,
             )
             let encoded = retInfo.encode(implCall)
             adapterMethod = "fun \(method.name)Wire(\(wireParams)): \(retInfo.wireType) = \(encoded)"
@@ -135,6 +135,6 @@ enum AdapterEmitter {
     private static func chooseName(param: ProvidedParameter) -> String {
         if param.label != "_" { return param.label }
         if let inner = param.internalName { return inner }
-        return param.label  // fallback: bare `_` (unusual)
+        return param.label // fallback: bare `_` (unusual)
     }
 }

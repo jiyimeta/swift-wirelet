@@ -40,34 +40,34 @@ enum InvokeBridgeEmitter {
         guard let returnTypeText else {
             return ReturnInfo(
                 signature: "", earlyReturn: "return", needsEnv: false, needsEnvValue: false,
-                renderTail: { $0 }
+                renderTail: { $0 },
             )
         }
         switch InvokeArgClassifier.classify(returnTypeText) {
-        case .primitive(let jniType, _):
+        case let .primitive(jniType, _):
             return ReturnInfo(
                 signature: " -> \(jniType)", earlyReturn: "return 0", needsEnv: false, needsEnvValue: false,
-                renderTail: { "return \(jniType)(\($0))" }
+                renderTail: { "return \(jniType)(\($0))" },
             )
         case .bool:
             return ReturnInfo(
                 signature: " -> jboolean", earlyReturn: "return 0", needsEnv: false, needsEnvValue: false,
-                renderTail: { "return (\($0)) ? 1 : 0" }
+                renderTail: { "return (\($0)) ? 1 : 0" },
             )
         case .string:
             return ReturnInfo(
                 signature: " -> jstring?", earlyReturn: "return nil", needsEnv: true, needsEnvValue: true,
-                renderTail: { "let __result = \($0)\n    return __result.withCString { envValue.pointee.NewStringUTF(env, $0) }" }
+                renderTail: stringReturnTail,
             )
         case .wireFormat:
             return ReturnInfo(
                 signature: " -> jbyteArray?", earlyReturn: "return nil", needsEnv: true, needsEnvValue: false,
-                renderTail: { "return WireletObservableJNI.encode(\($0), env: env)" }
+                renderTail: { "return WireletObservableJNI.encode(\($0), env: env)" },
             )
         case .array:
             return ReturnInfo(
                 signature: " -> jbyteArray?", earlyReturn: "return nil", needsEnv: true, needsEnvValue: false,
-                renderTail: { "return WireletObservableJNI.encodeArray(\($0), env: env)" }
+                renderTail: { "return WireletObservableJNI.encodeArray(\($0), env: env)" },
             )
         case .optionalString, .optionalPrimitive, .optionalWireFormat:
             // Optional returns are not supported yet; fail the build loudly rather than drop the value.
@@ -75,16 +75,27 @@ enum InvokeBridgeEmitter {
                 signature: " -> jbyteArray?", earlyReturn: "return nil", needsEnv: false, needsEnvValue: false,
                 renderTail: { _ in
                     #"#error("wirelet: @WireletExpose optional return type '\#(returnTypeText)' is not supported")"#
-                }
+                },
             )
         }
+    }
+
+    /// Tail for a `String` return: bind the call result, then marshal it to a
+    /// `jstring` via `NewStringUTF` over a borrowed C string.
+    private static func stringReturnTail(_ call: String) -> String {
+        let marshal = "return __result.withCString { envValue.pointee.NewStringUTF(env, $0) }"
+        return "let __result = \(call)\n    \(marshal)"
     }
 
     // MARK: - Zero-arg
 
     private static func renderZeroArg(className: String, methodName: String, ret: ReturnInfo) -> String {
         let call = "me.\(methodName)()"
-        let preamble = envPreamble(needsEnvValue: ret.needsEnvValue, needsEnv: ret.needsEnv, earlyReturn: ret.earlyReturn)
+        let preamble = envPreamble(
+            needsEnvValue: ret.needsEnvValue,
+            needsEnv: ret.needsEnv,
+            earlyReturn: ret.earlyReturn,
+        )
         let body = preamble.isEmpty ? ret.renderTail(call) : "\(preamble)\n    \(ret.renderTail(call))"
         return """
         @_cdecl("WireletObservable_\(className)_\(methodName)_invoke")
@@ -105,7 +116,7 @@ enum InvokeBridgeEmitter {
         className: String,
         methodName: String,
         params: [ObservableMethodParameter],
-        ret: ReturnInfo
+        ret: ReturnInfo,
     ) -> String {
         let paramList = params.enumerated().map { idx, p in
             "    _ arg\(idx): \(jniParameterType(for: p.typeText))"
@@ -190,9 +201,9 @@ enum InvokeBridgeEmitter {
 
     private static func jniParameterType(for typeText: String) -> String {
         switch InvokeArgClassifier.classify(typeText) {
-        case .primitive(let jniSwiftType, _): return jniSwiftType
-        case .bool:                           return "jboolean"
-        case .string, .optionalString:        return "jstring?"
+        case let .primitive(jniSwiftType, _): return jniSwiftType
+        case .bool: return "jboolean"
+        case .string, .optionalString: return "jstring?"
         case .wireFormat,
              .optionalPrimitive,
              .optionalWireFormat,
@@ -215,83 +226,122 @@ enum InvokeBridgeEmitter {
         let argName = "arg\(idx)"
         let outName = "decoded\(idx)"
         switch InvokeArgClassifier.classify(param.typeText) {
-        case .primitive(_, let swiftCast):
+        case let .primitive(_, swiftCast):
             return "let \(outName) = \(swiftCast)(\(argName))"
         case .bool:
             return "let \(outName) = (\(argName) != 0)"
         case .string:
-            return """
-            guard let raw\(idx) = \(argName) else {
-                \(earlyReturn)
-            }
+            return decodeString(idx: idx, argName: argName, outName: outName, earlyReturn: earlyReturn)
+        case let .wireFormat(typeName):
+            return decodeWireFormat(
+                idx: idx, argName: argName, outName: outName, typeName: typeName, earlyReturn: earlyReturn,
+            )
+        case let .optionalPrimitive(inner):
+            return decodeOptionalWire(idx: idx, argName: argName, outName: outName, typeName: inner)
+        case .optionalString:
+            return decodeOptionalString(idx: idx, argName: argName, outName: outName)
+        case let .optionalWireFormat(typeName):
+            return decodeOptionalWire(idx: idx, argName: argName, outName: outName, typeName: typeName)
+        case let .array(elementTypeName):
+            return decodeArray(
+                idx: idx,
+                argName: argName,
+                outName: outName,
+                elementTypeName: elementTypeName,
+                earlyReturn: earlyReturn,
+            )
+        }
+    }
+
+    /// Decode block for a non-optional `String` argument.
+    private static func decodeString(idx: Int, argName: String, outName: String, earlyReturn: String) -> String {
+        """
+        guard let raw\(idx) = \(argName) else {
+            \(earlyReturn)
+        }
+        let cstr\(idx) = envValue.pointee.GetStringUTFChars(env, raw\(idx), nil)
+        defer { envValue.pointee.ReleaseStringUTFChars(env, raw\(idx), cstr\(idx)) }
+        guard let cstr\(idx) else {
+            \(earlyReturn)
+        }
+        let \(outName) = String(cString: cstr\(idx))
+        """
+    }
+
+    /// Decode block for a non-optional `@WireFormat` argument.
+    private static func decodeWireFormat(
+        idx: Int,
+        argName: String,
+        outName: String,
+        typeName: String,
+        earlyReturn: String,
+    ) -> String {
+        """
+        guard let raw\(idx) = \(argName) else {
+            \(earlyReturn)
+        }
+        let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
+        guard let \(outName) = try? \(typeName)(decoding: data\(idx)) else {
+            \(earlyReturn)
+        }
+        """
+    }
+
+    /// Decode block for an optional `@WireFormat` (or optional primitive) argument.
+    /// Both decode the byte array via `init(decoding:)`, differing only in the
+    /// declared element type, so they share one renderer.
+    private static func decodeOptionalWire(idx: Int, argName: String, outName: String, typeName: String) -> String {
+        """
+        let \(outName): \(typeName)?
+        if let raw\(idx) = \(argName) {
+            let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
+            \(outName) = try? \(typeName)(decoding: data\(idx))
+        } else {
+            \(outName) = nil
+        }
+        """
+    }
+
+    /// Decode block for an optional `String` argument.
+    private static func decodeOptionalString(idx: Int, argName: String, outName: String) -> String {
+        """
+        let \(outName): String?
+        if let raw\(idx) = \(argName) {
             let cstr\(idx) = envValue.pointee.GetStringUTFChars(env, raw\(idx), nil)
             defer { envValue.pointee.ReleaseStringUTFChars(env, raw\(idx), cstr\(idx)) }
-            guard let cstr\(idx) else {
-                \(earlyReturn)
-            }
-            let \(outName) = String(cString: cstr\(idx))
-            """
-        case .wireFormat(let typeName):
-            return """
-            guard let raw\(idx) = \(argName) else {
-                \(earlyReturn)
-            }
-            let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
-            guard let \(outName) = try? \(typeName)(decoding: data\(idx)) else {
-                \(earlyReturn)
-            }
-            """
-        case .optionalPrimitive(let inner):
-            return """
-            let \(outName): \(inner)?
-            if let raw\(idx) = \(argName) {
-                let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
-                \(outName) = try? \(inner)(decoding: data\(idx))
-            } else {
-                \(outName) = nil
-            }
-            """
-        case .optionalString:
-            return """
-            let \(outName): String?
-            if let raw\(idx) = \(argName) {
-                let cstr\(idx) = envValue.pointee.GetStringUTFChars(env, raw\(idx), nil)
-                defer { envValue.pointee.ReleaseStringUTFChars(env, raw\(idx), cstr\(idx)) }
-                \(outName) = cstr\(idx).map { String(cString: $0) }
-            } else {
-                \(outName) = nil
-            }
-            """
-        case .optionalWireFormat(let typeName):
-            return """
-            let \(outName): \(typeName)?
-            if let raw\(idx) = \(argName) {
-                let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
-                \(outName) = try? \(typeName)(decoding: data\(idx))
-            } else {
-                \(outName) = nil
-            }
-            """
-        case .array(let elementTypeName):
-            return """
-            guard let raw\(idx) = \(argName) else {
-                \(earlyReturn)
-            }
-            let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
-            var reader\(idx) = WireFormatReader(data: data\(idx))
-            guard let count\(idx) = try? reader\(idx).readVarint() else {
-                \(earlyReturn)
-            }
-            var elements\(idx): [\(elementTypeName)] = []
-            elements\(idx).reserveCapacity(Int(count\(idx)))
-            for _ in 0..<Int(count\(idx)) {
-                guard let element\(idx) = try? \(elementTypeName)(from: &reader\(idx)) else {
-                    \(earlyReturn)
-                }
-                elements\(idx).append(element\(idx))
-            }
-            let \(outName) = elements\(idx)
-            """
+            \(outName) = cstr\(idx).map { String(cString: $0) }
+        } else {
+            \(outName) = nil
         }
+        """
+    }
+
+    /// Decode block for an array of `@WireFormat` elements.
+    private static func decodeArray(
+        idx: Int,
+        argName: String,
+        outName: String,
+        elementTypeName: String,
+        earlyReturn: String,
+    ) -> String {
+        """
+        guard let raw\(idx) = \(argName) else {
+            \(earlyReturn)
+        }
+        let data\(idx) = WireletObservableJNI.dataFromByteArray(raw\(idx), env: env)
+        var reader\(idx) = WireFormatReader(data: data\(idx))
+        guard let count\(idx) = try? reader\(idx).readVarint() else {
+            \(earlyReturn)
+        }
+        var elements\(idx): [\(elementTypeName)] = []
+        elements\(idx).reserveCapacity(Int(count\(idx)))
+        for _ in 0..<Int(count\(idx)) {
+            guard let element\(idx) = try? \(elementTypeName)(from: &reader\(idx)) else {
+                \(earlyReturn)
+            }
+            elements\(idx).append(element\(idx))
+        }
+        let \(outName) = elements\(idx)
+        """
     }
 }

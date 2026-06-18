@@ -9,9 +9,17 @@ package io.github.jiyimeta.wirelet
 class BinaryWriter {
     private val out = mutableListOf<Byte>()
 
-    fun writeU8(v: Int) { out += (v and 0xFF).toByte() }
-    fun writeU8(v: UByte) { out += v.toByte() }
-    fun writeU8(v: UInt) { out += (v and 0xFFu).toByte() }
+    fun writeU8(v: Int) {
+        out += (v and 0xFF).toByte()
+    }
+
+    fun writeU8(v: UByte) {
+        out += v.toByte()
+    }
+
+    fun writeU8(v: UInt) {
+        out += (v and 0xFFu).toByte()
+    }
 
     fun writeU16(v: Int) {
         writeU8(v and 0xFF)
@@ -30,8 +38,13 @@ class BinaryWriter {
         for (i in 0..3) writeU8(((v shr (i * 8)) and 0xFF).toInt())
     }
 
-    fun writeF32(v: Float) { writeI32(java.lang.Float.floatToRawIntBits(v)) }
-    fun writeF64(v: Double) { writeI64(v.toRawBits()) }
+    fun writeF32(v: Float) {
+        writeI32(java.lang.Float.floatToRawIntBits(v))
+    }
+
+    fun writeF64(v: Double) {
+        writeI64(v.toRawBits())
+    }
 
     fun writeString(v: String) {
         val bytes = v.toByteArray(Charsets.UTF_8)
@@ -63,7 +76,10 @@ class BinaryWriter {
     }
 
     /** Field header: (tag << 3) | wireType, written as a varint. */
-    fun writeTag(tag: Int, wireType: WireType) {
+    fun writeTag(
+        tag: Int,
+        wireType: WireType,
+    ) {
         writeVarint((tag.toLong() shl 3) or wireType.code.toLong())
     }
 

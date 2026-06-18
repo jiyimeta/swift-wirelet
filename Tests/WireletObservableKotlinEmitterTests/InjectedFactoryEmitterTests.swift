@@ -1,7 +1,7 @@
 import Foundation
 import Testing
-@testable import WireletObservableKotlinEmitter
 import WireletKotlinEmitter
+@testable import WireletObservableKotlinEmitter
 import WireletObservableSchema
 
 private func makeInjectedConfig() -> ObservableCodegenConfig {
@@ -11,40 +11,40 @@ private func makeInjectedConfig() -> ObservableCodegenConfig {
         codecPackage: "com.example.app.codecs",
         libraryName: "ExampleJNI",
         nameTransform: .stripSuffix("VM"),
-        providedAdapterPackage: "com.example.iface"
+        providedAdapterPackage: "com.example.iface",
     )
 }
 
 @Suite struct InjectedFactoryEmitterTests {
-    @Test func injectedFactory() throws {
+    @Test func injectedFactory() {
         let vm = ObservableViewModel(
             name: "TodoListVM",
             properties: [],
             methods: [],
             initParameters: [
                 ObservableInitParameter(label: "store", internalName: nil, typeText: "TodoStore"),
-            ]
+            ],
         )
         let output = ViewModelEmitter.emit(vm, config: makeInjectedConfig()).content
         #expect(output.contains(
-            "fun create(store: TodoStore): TodoListViewModel ="
+            "fun create(store: TodoStore): TodoListViewModel =",
         ))
         #expect(output.contains(
-            "TodoListViewModel(nativeNew(TodoStoreNativeAdapter(store)))"
+            "TodoListViewModel(nativeNew(TodoStoreNativeAdapter(store)))",
         ))
         #expect(output.contains(
-            "private external fun nativeNew(storeAdapter: TodoStoreNativeAdapter): Long"
+            "private external fun nativeNew(storeAdapter: TodoStoreNativeAdapter): Long",
         ))
         #expect(output.contains("import com.example.iface.TodoStore"))
         #expect(output.contains("import com.example.iface.TodoStoreNativeAdapter"))
     }
 
-    @Test func noArgFactoryUnchanged() throws {
+    @Test func noArgFactoryUnchanged() {
         let vm = ObservableViewModel(
             name: "TodoListVM",
             properties: [],
             methods: [],
-            initParameters: []
+            initParameters: [],
         )
         let output = ViewModelEmitter.emit(vm, config: makeInjectedConfig()).content
         #expect(output.contains("fun create(): TodoListViewModel ="))
@@ -53,7 +53,7 @@ private func makeInjectedConfig() -> ObservableCodegenConfig {
         #expect(!output.contains("NativeAdapter"))
     }
 
-    @Test func injectedFactoryColocatedFallback() throws {
+    @Test func injectedFactoryColocatedFallback() {
         // When providedAdapterPackage is nil, the factory still wraps in the
         // adapter type but emits the type names unqualified (no import).
         var config = makeInjectedConfig()
@@ -64,7 +64,7 @@ private func makeInjectedConfig() -> ObservableCodegenConfig {
             methods: [],
             initParameters: [
                 ObservableInitParameter(label: "store", internalName: nil, typeText: "TodoStore"),
-            ]
+            ],
         )
         let output = ViewModelEmitter.emit(vm, config: config).content
         #expect(output.contains("fun create(store: TodoStore): TodoListViewModel ="))

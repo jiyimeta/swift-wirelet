@@ -60,9 +60,9 @@ public enum InvokeArgClassifier {
     private static func primitiveJNI(_ typeText: String) -> String? {
         switch typeText {
         case "Int8", "Int16", "Int32", "UInt8", "UInt16": return "jint"
-        case "Int64", "UInt32", "UInt64":                 return "jlong"
-        case "Bool":   return "jboolean"
-        case "Float":  return "jfloat"
+        case "Int64", "UInt32", "UInt64": return "jlong"
+        case "Bool": return "jboolean"
+        case "Float": return "jfloat"
         case "Double": return "jdouble"
         default: return nil
         }

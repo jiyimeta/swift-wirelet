@@ -10,12 +10,12 @@ public struct WireletProvidedMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingPeersOf declaration: some DeclSyntaxProtocol,
-        in context: some MacroExpansionContext
+        in context: some MacroExpansionContext,
     ) throws -> [DeclSyntax] {
         guard declaration.is(ProtocolDeclSyntax.self) else {
             context.diagnose(Diagnostic(
                 node: Syntax(node),
-                message: WireletProvidedDiagnostic.notAProtocol
+                message: WireletProvidedDiagnostic.notAProtocol,
             ))
             return []
         }

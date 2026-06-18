@@ -1,5 +1,5 @@
 import Foundation
-import WireletKotlinEmitter  // NameTransform
+import WireletKotlinEmitter // NameTransform
 
 /// JSON-decodable config for `emit-wirelet-provided`. Mirrors
 /// `ObservableCodegenConfig` but carries the provided-bridge-specific
@@ -29,7 +29,7 @@ public struct ProvidedCodegenConfig: Codable, Sendable, Equatable {
         adapterPackage: String,
         modelPackage: String,
         codecPackage: String,
-        runtimePackage: String = "io.github.jiyimeta.wirelet.observable"
+        runtimePackage: String = "io.github.jiyimeta.wirelet.observable",
     ) {
         self.interfacePackage = interfacePackage
         self.adapterPackage = adapterPackage

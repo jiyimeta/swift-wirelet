@@ -39,7 +39,6 @@ extension WireFormatReader {
 
     public mutating func readZigZagVarint() throws -> Int64 {
         let zz = try readVarint()
-        let v = Int64(bitPattern: zz >> 1) ^ -(Int64(bitPattern: zz & 1))
-        return v
+        return Int64(bitPattern: zz >> 1) ^ -Int64(bitPattern: zz & 1)
     }
 }

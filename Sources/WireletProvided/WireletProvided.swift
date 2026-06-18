@@ -17,5 +17,5 @@
 @attached(peer)
 public macro WireletProvided() = #externalMacro(
     module: "WireletProvidedMacros",
-    type: "WireletProvidedMacro"
+    type: "WireletProvidedMacro",
 )

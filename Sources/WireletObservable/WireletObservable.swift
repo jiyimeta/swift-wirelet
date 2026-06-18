@@ -2,7 +2,7 @@
 // because the macro-generated extensions are themselves guarded by
 // `#if os(Android)` and so the JNI types are never referenced.
 #if os(Android)
-@_exported import SwiftJavaJNICore
+    @_exported import SwiftJavaJNICore
 #endif
 
 /// Marker for a method that the Wirelet Observable Kotlin codegen should
@@ -11,7 +11,7 @@
 @attached(peer)
 public macro WireletExpose() = #externalMacro(
     module: "WireletObservableMacros",
-    type: "WireletExposeMacro"
+    type: "WireletExposeMacro",
 )
 
 /// Marker attribute for a `final class` that is also `@Observable` and
@@ -30,5 +30,5 @@ public macro WireletExpose() = #externalMacro(
 @attached(peer)
 public macro WireletObservable() = #externalMacro(
     module: "WireletObservableMacros",
-    type: "WireletObservableMacro"
+    type: "WireletObservableMacro",
 )

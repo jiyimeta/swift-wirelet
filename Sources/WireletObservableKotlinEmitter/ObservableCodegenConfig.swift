@@ -43,7 +43,7 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
         runtimePackage: String = "io.github.jiyimeta.wirelet.observable",
         libraryName: String,
         nameTransform: NameTransform = .identity,
-        providedAdapterPackage: String? = nil
+        providedAdapterPackage: String? = nil,
     ) {
         self.viewModelPackage = viewModelPackage
         self.modelPackage = modelPackage
@@ -76,7 +76,7 @@ public struct ObservableCodegenConfig: Codable, Sendable, Equatable {
             ?? .identity
         // Absent JSON key → nil (only set when a view-model has an injected init).
         providedAdapterPackage = try c.decodeIfPresent(
-            String.self, forKey: .providedAdapterPackage
+            String.self, forKey: .providedAdapterPackage,
         )
     }
 }

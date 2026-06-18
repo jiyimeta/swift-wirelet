@@ -1,7 +1,7 @@
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
-import XCTest
 @testable import WireletObservableMacros
+import XCTest
 
 private let macroSpecs: [String: any Macro.Type] = [
     "WireletObservable": WireletObservableMacro.self,
@@ -29,7 +29,7 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
             diagnostics: [
                 .init(message: "@WireletObservable requires a final class.", line: 3, column: 7),
             ],
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 
@@ -49,7 +49,7 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
             diagnostics: [
                 .init(message: "@WireletObservable must be paired with @Observable.", line: 2, column: 13),
             ],
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 
@@ -72,7 +72,7 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
             }
             """,
             diagnostics: [],
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 
@@ -94,7 +94,7 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
             }
             """,
             diagnostics: [],
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 
@@ -115,7 +115,7 @@ final class WireletObservableMacroDiagnosticsTests: XCTestCase {
                 var count: Int32 = 0
             }
             """,
-            macros: macroSpecs
+            macros: macroSpecs,
         )
     }
 }

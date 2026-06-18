@@ -9,7 +9,9 @@ import kotlin.test.assertTrue
 
 class IncrementalRebuildTest {
     @Test
-    fun secondInvocationIsUpToDate(@TempDir tempDir: File) {
+    fun secondInvocationIsUpToDate(
+        @TempDir tempDir: File,
+    ) {
         setupFixture(tempDir)
 
         val first = runner(tempDir, "generateWireletCodecsMain").build()
@@ -27,7 +29,9 @@ class IncrementalRebuildTest {
     }
 
     @Test
-    fun rerunsWhenSchemaChanges(@TempDir tempDir: File) {
+    fun rerunsWhenSchemaChanges(
+        @TempDir tempDir: File,
+    ) {
         setupFixture(tempDir)
         runner(tempDir, "generateWireletCodecsMain").build()
 
@@ -35,7 +39,8 @@ class IncrementalRebuildTest {
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Point.swift",
-            content = """
+            content =
+                """
                 import Wirelet
 
                 @WireFormat
@@ -49,7 +54,7 @@ class IncrementalRebuildTest {
                         self.label = label
                     }
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
         val rerun = runner(tempDir, "generateWireletCodecsMain").build()
@@ -58,9 +63,10 @@ class IncrementalRebuildTest {
             rerun.task(":generateWireletCodecsMain")?.outcome,
             "task should have re-run after schema mutation",
         )
-        val regenerated = tempDir.resolve(
-            "build/generated/wirelet/main/kotlin/com/example/fixture/codec/PointCodec.kt",
-        ).readText()
+        val regenerated =
+            tempDir.resolve(
+                "build/generated/wirelet/main/kotlin/com/example/fixture/codec/PointCodec.kt",
+            ).readText()
         assertTrue(
             regenerated.contains("label"),
             "regenerated codec missing the new `label` field reference",
@@ -70,7 +76,8 @@ class IncrementalRebuildTest {
     private fun setupFixture(tempDir: File) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 wirelet {
                     swiftPackagePath.set(file(${'"'}${wireletRepoRoot.absolutePath}${'"'}))
                     sources.register("main") {
@@ -80,12 +87,13 @@ class IncrementalRebuildTest {
                     }
                 }
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Point.swift",
-            content = """
+            content =
+                """
                 import Wirelet
 
                 @WireFormat
@@ -97,7 +105,7 @@ class IncrementalRebuildTest {
                         self.y = y
                     }
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
     }
 }

@@ -3,9 +3,7 @@ package io.github.jiyimeta.wirelet.gradle
 import com.android.build.api.variant.AndroidComponentsExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.file.Directory
 import org.gradle.api.file.SourceDirectorySet
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 
@@ -25,49 +23,50 @@ class WireletPlugin : Plugin<Project> {
         val taskName = "generateWireletObservableViewModels${
             entry.name.replaceFirstChar { it.uppercaseChar() }
         }"
-        val task = project.tasks.register(
-            taskName,
-            GenerateWireletObservableViewModels::class.java,
-        ) {
-            group = "wirelet"
-            description = "Generates @WireletObservable view-models for source set '${entry.name}'."
-            schemaPaths.from(entry.schemaPaths)
-            swiftPackagePath.set(extension.swiftPackagePath)
-            viewModelPackage.set(entry.viewModelPackage)
-            modelPackage.set(entry.modelPackage)
-            codecPackage.set(entry.codecPackage)
-            runtimePackage.set(
-                entry.runtimePackage.orElse("io.github.jiyimeta.wirelet.observable"),
-            )
-            libraryName.set(entry.libraryName)
-            includePackages.set(entry.includePackages)
-            providedAdapterPackage.set(entry.providedAdapterPackage)
-            outputDir.set(
-                project.layout.buildDirectory.dir(
-                    "generated/wirelet/observable/${entry.name}/kotlin",
-                ),
-            )
-            // Wire the JNI sidecar file into the schema source directory so
-            // the WireletObservableBridges SwiftPM plugin can find it adjacent
-            // to the Swift schema sources and trigger JNI_OnLoad generation.
-            //
-            // The sidecar is a separate @OutputFile; sibling tasks that scan
-            // the same schema directory won't see it as an input because both
-            // GenerateWireletCodecs and this task use swiftSourceFiles
-            // (filtered to .swift only) as their tracked @InputFiles.
-            jniSidecarFile.set(
-                entry.schemaPaths.elements.map { elements ->
-                    val schemaFile = elements.singleOrNull()?.asFile
-                    if (schemaFile != null) {
-                        project.layout.projectDirectory.file(
-                            schemaFile.resolve(".wirelet-observable-jni.json").absolutePath
-                        )
-                    } else {
-                        null
-                    }
-                }
-            )
-        }
+        val task =
+            project.tasks.register(
+                taskName,
+                GenerateWireletObservableViewModels::class.java,
+            ) {
+                group = "wirelet"
+                description = "Generates @WireletObservable view-models for source set '${entry.name}'."
+                schemaPaths.from(entry.schemaPaths)
+                swiftPackagePath.set(extension.swiftPackagePath)
+                viewModelPackage.set(entry.viewModelPackage)
+                modelPackage.set(entry.modelPackage)
+                codecPackage.set(entry.codecPackage)
+                runtimePackage.set(
+                    entry.runtimePackage.orElse("io.github.jiyimeta.wirelet.observable"),
+                )
+                libraryName.set(entry.libraryName)
+                includePackages.set(entry.includePackages)
+                providedAdapterPackage.set(entry.providedAdapterPackage)
+                outputDir.set(
+                    project.layout.buildDirectory.dir(
+                        "generated/wirelet/observable/${entry.name}/kotlin",
+                    ),
+                )
+                // Wire the JNI sidecar file into the schema source directory so
+                // the WireletObservableBridges SwiftPM plugin can find it adjacent
+                // to the Swift schema sources and trigger JNI_OnLoad generation.
+                //
+                // The sidecar is a separate @OutputFile; sibling tasks that scan
+                // the same schema directory won't see it as an input because both
+                // GenerateWireletCodecs and this task use swiftSourceFiles
+                // (filtered to .swift only) as their tracked @InputFiles.
+                jniSidecarFile.set(
+                    entry.schemaPaths.elements.map { elements ->
+                        val schemaFile = elements.singleOrNull()?.asFile
+                        if (schemaFile != null) {
+                            project.layout.projectDirectory.file(
+                                schemaFile.resolve(".wirelet-observable-jni.json").absolutePath,
+                            )
+                        } else {
+                            null
+                        }
+                    },
+                )
+            }
 
         project.plugins.withId("org.jetbrains.kotlin.jvm") {
             wireOutputIntoKotlinSourceSet(project, entry.name, task)
@@ -85,18 +84,21 @@ class WireletPlugin : Plugin<Project> {
         sourceSetName: String,
         task: TaskProvider<GenerateWireletObservableViewModels>,
     ) {
-        val sourceSets = project.extensions.findByType(SourceSetContainer::class.java)
-            ?: return
+        val sourceSets =
+            project.extensions.findByType(SourceSetContainer::class.java)
+                ?: return
         val kotlinSourceSet = sourceSets.findByName(sourceSetName) ?: return
-        val kotlinDirs = kotlinSourceSet.extensions.findByName("kotlin")
-            as? SourceDirectorySet
+        val kotlinDirs =
+            kotlinSourceSet.extensions.findByName("kotlin")
+                as? SourceDirectorySet
         kotlinDirs?.srcDir(task.flatMap { it.outputDir })
 
-        val compileTaskName = if (sourceSetName == "main") {
-            "compileKotlin"
-        } else {
-            "compile${sourceSetName.replaceFirstChar { it.uppercaseChar() }}Kotlin"
-        }
+        val compileTaskName =
+            if (sourceSetName == "main") {
+                "compileKotlin"
+            } else {
+                "compile${sourceSetName.replaceFirstChar { it.uppercaseChar() }}Kotlin"
+            }
         project.tasks.matching { it.name == compileTaskName }
             .configureEach { dependsOn(task) }
     }
@@ -107,36 +109,39 @@ class WireletPlugin : Plugin<Project> {
         entry: WireletSourceSet,
     ) {
         val taskName = "generateWireletCodecs${entry.name.replaceFirstChar { it.uppercaseChar() }}"
-        val task = project.tasks.register(taskName, GenerateWireletCodecs::class.java) {
-            group = "wirelet"
-            description = "Generates Kotlin codecs for source set '${entry.name}'."
-            schemaPaths.from(entry.schemaPaths)
-            swiftPackagePath.set(extension.swiftPackagePath)
-            codecPackage.set(entry.codecPackage)
-            modelPackage.set(entry.modelPackage)
-            serializationPackage.set(
-                entry.serializationPackage.orElse("io.github.jiyimeta.wirelet"),
-            )
-            includePackages.set(entry.includePackages)
-            emitModels.set(entry.emitModels.orElse(false))
-            stripNameSuffix.set(entry.stripNameSuffix)
-            outputDir.set(
-                project.layout.buildDirectory.dir("generated/wirelet/${entry.name}/kotlin"),
-            )
-        }
+        val task =
+            project.tasks.register(taskName, GenerateWireletCodecs::class.java) {
+                group = "wirelet"
+                description = "Generates Kotlin codecs for source set '${entry.name}'."
+                schemaPaths.from(entry.schemaPaths)
+                swiftPackagePath.set(extension.swiftPackagePath)
+                codecPackage.set(entry.codecPackage)
+                modelPackage.set(entry.modelPackage)
+                serializationPackage.set(
+                    entry.serializationPackage.orElse("io.github.jiyimeta.wirelet"),
+                )
+                includePackages.set(entry.includePackages)
+                emitModels.set(entry.emitModels.orElse(false))
+                stripNameSuffix.set(entry.stripNameSuffix)
+                outputDir.set(
+                    project.layout.buildDirectory.dir("generated/wirelet/${entry.name}/kotlin"),
+                )
+            }
 
         project.plugins.withId("org.jetbrains.kotlin.jvm") {
             val sourceSets = project.extensions.getByType(SourceSetContainer::class.java)
             val kotlinSourceSet = sourceSets.findByName(entry.name) ?: return@withId
-            val kotlinDirs = kotlinSourceSet.extensions.findByName("kotlin")
-                as? SourceDirectorySet
+            val kotlinDirs =
+                kotlinSourceSet.extensions.findByName("kotlin")
+                    as? SourceDirectorySet
             kotlinDirs?.srcDir(task.flatMap { it.outputDir })
 
-            val compileTaskName = if (entry.name == "main") {
-                "compileKotlin"
-            } else {
-                "compile${entry.name.replaceFirstChar { it.uppercaseChar() }}Kotlin"
-            }
+            val compileTaskName =
+                if (entry.name == "main") {
+                    "compileKotlin"
+                } else {
+                    "compile${entry.name.replaceFirstChar { it.uppercaseChar() }}Kotlin"
+                }
             project.tasks.matching { it.name == compileTaskName }
                 .configureEach { dependsOn(task) }
         }
@@ -157,9 +162,10 @@ class WireletPlugin : Plugin<Project> {
     ) {
         listOf("com.android.application", "com.android.library").forEach { pluginId ->
             project.plugins.withId(pluginId) {
-                val ext = project.extensions.findByType(
-                    AndroidComponentsExtension::class.java,
-                ) ?: return@withId
+                val ext =
+                    project.extensions.findByType(
+                        AndroidComponentsExtension::class.java,
+                    ) ?: return@withId
                 ext.onVariants { variant ->
                     if (sourceSetName != "main") return@onVariants
                     // Register the generated dir on BOTH the Kotlin and
@@ -189,28 +195,29 @@ class WireletPlugin : Plugin<Project> {
         val taskName = "generateWireletProvidedInterfaces${
             entry.name.replaceFirstChar { it.uppercaseChar() }
         }"
-        val task = project.tasks.register(
-            taskName,
-            GenerateWireletProvidedInterfaces::class.java,
-        ) {
-            group = "wirelet"
-            description = "Generates @WireletProvided interface + adapter for source set '${entry.name}'."
-            schemaPaths.from(entry.schemaPaths)
-            swiftPackagePath.set(extension.swiftPackagePath)
-            interfacePackage.set(entry.interfacePackage)
-            adapterPackage.set(entry.adapterPackage)
-            modelPackage.set(entry.modelPackage)
-            codecPackage.set(entry.codecPackage)
-            runtimePackage.set(
-                entry.runtimePackage.orElse("io.github.jiyimeta.wirelet.observable"),
-            )
-            includePackages.set(entry.includePackages)
-            outputDir.set(
-                project.layout.buildDirectory.dir(
-                    "generated/wirelet/provided/${entry.name}/kotlin",
-                ),
-            )
-        }
+        val task =
+            project.tasks.register(
+                taskName,
+                GenerateWireletProvidedInterfaces::class.java,
+            ) {
+                group = "wirelet"
+                description = "Generates @WireletProvided interface + adapter for source set '${entry.name}'."
+                schemaPaths.from(entry.schemaPaths)
+                swiftPackagePath.set(extension.swiftPackagePath)
+                interfacePackage.set(entry.interfacePackage)
+                adapterPackage.set(entry.adapterPackage)
+                modelPackage.set(entry.modelPackage)
+                codecPackage.set(entry.codecPackage)
+                runtimePackage.set(
+                    entry.runtimePackage.orElse("io.github.jiyimeta.wirelet.observable"),
+                )
+                includePackages.set(entry.includePackages)
+                outputDir.set(
+                    project.layout.buildDirectory.dir(
+                        "generated/wirelet/provided/${entry.name}/kotlin",
+                    ),
+                )
+            }
 
         project.plugins.withId("org.jetbrains.kotlin.jvm") {
             wireProvidedOutputIntoKotlinSourceSet(project, entry.name, task)
@@ -223,18 +230,21 @@ class WireletPlugin : Plugin<Project> {
         sourceSetName: String,
         task: TaskProvider<GenerateWireletProvidedInterfaces>,
     ) {
-        val sourceSets = project.extensions.findByType(SourceSetContainer::class.java)
-            ?: return
+        val sourceSets =
+            project.extensions.findByType(SourceSetContainer::class.java)
+                ?: return
         val kotlinSourceSet = sourceSets.findByName(sourceSetName) ?: return
-        val kotlinDirs = kotlinSourceSet.extensions.findByName("kotlin")
-            as? SourceDirectorySet
+        val kotlinDirs =
+            kotlinSourceSet.extensions.findByName("kotlin")
+                as? SourceDirectorySet
         kotlinDirs?.srcDir(task.flatMap { it.outputDir })
 
-        val compileTaskName = if (sourceSetName == "main") {
-            "compileKotlin"
-        } else {
-            "compile${sourceSetName.replaceFirstChar { it.uppercaseChar() }}Kotlin"
-        }
+        val compileTaskName =
+            if (sourceSetName == "main") {
+                "compileKotlin"
+            } else {
+                "compile${sourceSetName.replaceFirstChar { it.uppercaseChar() }}Kotlin"
+            }
         project.tasks.matching { it.name == compileTaskName }
             .configureEach { dependsOn(task) }
     }
@@ -251,9 +261,10 @@ class WireletPlugin : Plugin<Project> {
     ) {
         listOf("com.android.application", "com.android.library").forEach { pluginId ->
             project.plugins.withId(pluginId) {
-                val ext = project.extensions.findByType(
-                    AndroidComponentsExtension::class.java,
-                ) ?: return@withId
+                val ext =
+                    project.extensions.findByType(
+                        AndroidComponentsExtension::class.java,
+                    ) ?: return@withId
                 ext.onVariants { variant ->
                     if (sourceSetName != "main") return@onVariants
                     variant.sources.kotlin?.addGeneratedSourceDirectory(
@@ -277,9 +288,10 @@ class WireletPlugin : Plugin<Project> {
     ) {
         listOf("com.android.application", "com.android.library").forEach { pluginId ->
             project.plugins.withId(pluginId) {
-                val ext = project.extensions.findByType(
-                    AndroidComponentsExtension::class.java,
-                ) ?: return@withId
+                val ext =
+                    project.extensions.findByType(
+                        AndroidComponentsExtension::class.java,
+                    ) ?: return@withId
                 ext.onVariants { variant ->
                     if (sourceSetName != "main") return@onVariants
                     variant.sources.kotlin?.addGeneratedSourceDirectory(

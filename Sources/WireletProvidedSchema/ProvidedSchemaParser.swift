@@ -34,14 +34,14 @@ final class ProvidedVisitor: SyntaxVisitor {
                 ProvidedParameter(
                     label: param.firstName.text,
                     internalName: param.secondName?.text,
-                    typeText: param.type.trimmedDescription
+                    typeText: param.type.trimmedDescription,
                 )
             }
             let returnTypeText = funcDecl.signature.returnClause?.type.trimmedDescription
             out.append(ProvidedMethod(
                 name: funcDecl.name.text,
                 parameters: params,
-                returnTypeText: returnTypeText
+                returnTypeText: returnTypeText,
             ))
         }
         return out

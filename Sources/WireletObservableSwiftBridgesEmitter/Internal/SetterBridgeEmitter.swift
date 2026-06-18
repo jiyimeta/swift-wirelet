@@ -8,23 +8,23 @@ enum SetterBridgeEmitter {
             return renderPrimitiveSetter(className: className, property: property)
         case .string:
             return renderStringSetter(className: className, property: property)
-        case .wireFormat(let typeName):
+        case let .wireFormat(typeName):
             return renderWireFormatSetter(className: className, property: property, typeName: typeName)
-        case .wireFormatArray(let elementTypeName):
+        case let .wireFormatArray(elementTypeName):
             return renderWireFormatArraySetter(
                 className: className,
                 property: property,
-                elementTypeName: elementTypeName
+                elementTypeName: elementTypeName,
             )
         case .optionalPrimitive:
             return renderOptionalPrimitiveSetter(className: className, property: property)
         case .optionalString:
             return renderOptionalStringSetter(className: className, property: property)
-        case .optionalWireFormat(let typeName):
+        case let .optionalWireFormat(typeName):
             return renderOptionalWireFormatSetter(
                 className: className,
                 property: property,
-                typeName: typeName
+                typeName: typeName,
             )
         }
     }
@@ -33,13 +33,13 @@ enum SetterBridgeEmitter {
 
     private static func renderPrimitiveSetter(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
         let jniType = primitiveJNIType(property.swiftTypeText)
         let assignBody: String = {
             switch property.swiftTypeText {
             case "Bool": return "me.\(property.name) = (new_value != 0)"
-            default:     return "me.\(property.name) = \(property.swiftTypeText)(new_value)"
+            default: return "me.\(property.name) = \(property.swiftTypeText)(new_value)"
             }
         }()
         return """
@@ -58,9 +58,9 @@ enum SetterBridgeEmitter {
 
     private static func renderStringSetter(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -81,9 +81,9 @@ enum SetterBridgeEmitter {
     private static func renderWireFormatSetter(
         className: String,
         property: ObservableProperty,
-        typeName: String
+        typeName: String,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -103,9 +103,9 @@ enum SetterBridgeEmitter {
     private static func renderWireFormatArraySetter(
         className: String,
         property: ObservableProperty,
-        elementTypeName: String
+        elementTypeName: String,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -131,7 +131,7 @@ enum SetterBridgeEmitter {
 
     private static func renderOptionalPrimitiveSetter(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
         // Strip the trailing "?" to get the inner type name.
         let innerType = property.swiftTypeText.hasSuffix("?")
@@ -159,9 +159,9 @@ enum SetterBridgeEmitter {
 
     private static func renderOptionalStringSetter(
         className: String,
-        property: ObservableProperty
+        property: ObservableProperty,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,
@@ -185,9 +185,9 @@ enum SetterBridgeEmitter {
     private static func renderOptionalWireFormatSetter(
         className: String,
         property: ObservableProperty,
-        typeName: String
+        typeName: String,
     ) -> String {
-        return """
+        """
         @_cdecl("WireletObservable_\(className)_\(property.name)_set")
         public func __\(className)_\(property.name)_set_jni(
             _ env: UnsafeMutablePointer<JNIEnv?>?,

@@ -8,10 +8,13 @@ import kotlin.test.assertEquals
 
 class ObservableIncrementalTest {
     @Test
-    fun upToDateOnSecondRunAndInvalidatesOnSchemaEdit(@TempDir tempDir: File) {
+    fun upToDateOnSecondRunAndInvalidatesOnSchemaEdit(
+        @TempDir tempDir: File,
+    ) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 wirelet {
                     swiftPackagePath.set(file(${'"'}${wireletRepoRoot.absolutePath}${'"'}))
                     observable {
@@ -25,12 +28,13 @@ class ObservableIncrementalTest {
                     }
                 }
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Counter.swift",
-            content = """
+            content =
+                """
                 import Observation
                 import WireletObservable
 
@@ -40,7 +44,7 @@ class ObservableIncrementalTest {
                     public var count: Int32 = 0
                     public init() {}
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
         val first = runner(tempDir, "generateWireletObservableViewModelsMain").build()
@@ -60,7 +64,8 @@ class ObservableIncrementalTest {
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Counter.swift",
-            content = """
+            content =
+                """
                 import Observation
                 import WireletObservable
 
@@ -71,7 +76,7 @@ class ObservableIncrementalTest {
                     public var label: String = ""
                     public init() {}
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         val third = runner(tempDir, "generateWireletObservableViewModelsMain").build()
         assertEquals(

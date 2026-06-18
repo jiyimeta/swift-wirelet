@@ -17,13 +17,13 @@ import WireletObservable
 public final class TodoListVM {
     @ObservationIgnored private let store: TodoStore
     public var items: [TodoItem] = []
-    public var filter: String = ""
+    public var filter = ""
     public var totalCount: Int32 = 0
 
     public init(store: TodoStore) {
         self.store = store
-        self.items = store.loadAll()
-        self.totalCount = Int32(self.items.count)
+        items = store.loadAll()
+        totalCount = Int32(items.count)
     }
 
     @WireletExpose

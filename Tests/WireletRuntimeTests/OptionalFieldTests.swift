@@ -22,7 +22,7 @@ struct OptionalV2 {
 @WireFormat
 struct WithExplicitOptional {
     var a: Int32
-    var b: Optional<Int32>
+    var b: Int32?
 }
 
 @Test func optionalAbsentDecodeAsNil() throws {

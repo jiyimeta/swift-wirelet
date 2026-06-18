@@ -1,0 +1,28 @@
+--allman false
+--redundanttype inferred
+# Test fixtures under any Fixtures/ directory are parsed AS TEXT by the
+# schema parser (type annotations like `var x: String = ""` are
+# significant). Never reformat them — formatting strips the annotations
+# and breaks the parse tests.
+--exclude **/Fixtures
+--disable andOperator
+# redundantSwiftTestingSuite strips bare `@Suite`. wirelet keeps explicit
+# `@Suite` declarations (incl. empty namespace suites), so disable it.
+--disable redundantSwiftTestingSuite
+--disable unusedArguments
+--disable opaqueGenericParameters
+--disable conditionalAssignment
+# swiftTestingTestCaseNames (SwiftFormat 0.61+) rewrites
+# `@Test("desc") func camelCase()` into `@Test func ` followed by
+# the description as a backtick-quoted identifier. Those rewritten
+# names then violate SwiftLint's `identifier_name` rule (capitalised
+# leading char, spaces). Keep the description-string form until
+# both tools agree.
+--disable swiftTestingTestCaseNames
+--lineaftermarks false
+--swiftversion 6.2
+--wraparguments before-first
+--wrapcollections before-first
+--wrapparameters before-first
+--xcodeindentation enabled
+--extensionacl on-declarations

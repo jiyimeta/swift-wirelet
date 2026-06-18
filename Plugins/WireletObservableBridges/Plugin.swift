@@ -17,13 +17,13 @@ import PackagePlugin
 struct WireletObservableBridgesPlugin: BuildToolPlugin {
     func createBuildCommands(
         context: PluginContext,
-        target: any Target
+        target: any Target,
     ) async throws -> [Command] {
         guard let sourceTarget = target as? SourceModuleTarget else { return [] }
         let cli = try context.tool(named: "EmitWireletObservableSwiftBridges")
         let outputDirURL = context.pluginWorkDirectoryURL.appending(
             path: "GeneratedBridges",
-            directoryHint: .isDirectory
+            directoryHint: .isDirectory,
         )
         // Pre-compute output file names by scanning source files for
         // @WireletObservable class declarations. This is intentionally
@@ -53,7 +53,7 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
         if FileManager.default.fileExists(atPath: sidecarPath) {
             arguments += ["--jni-config", sidecarPath]
             outputFiles.append(
-                outputDirURL.appending(path: "__WireletObservableJNI_OnLoad.swift")
+                outputDirURL.appending(path: "__WireletObservableJNI_OnLoad.swift"),
             )
             // Track the sidecar as a build-command input so SwiftPM invalidates
             // the cached output when the Wirelet Gradle plugin rewrites it.
@@ -70,7 +70,7 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
                 executable: cli.url,
                 arguments: arguments,
                 inputFiles: inputFiles,
-                outputFiles: outputFiles
+                outputFiles: outputFiles,
             ),
         ]
     }
@@ -91,7 +91,7 @@ struct WireletObservableBridgesPlugin: BuildToolPlugin {
                 continue
             }
             if seenObservable {
-                // Blank lines and comments (`//`, `///`, `// swiftlint:…`) can legally sit between the
+                // Blank lines and comments (`//`, `///`, `swiftlint` directives) can legally sit between the
                 // `@WireletObservable` / `@Observable` attributes and the `class` keyword. Skip them rather than
                 // treating them as "unexpected" — otherwise the class is silently dropped from codegen and its
                 // `@_cdecl` bridge symbols never compile into the .so (a brutal runtime JNI_OnLoad failure).

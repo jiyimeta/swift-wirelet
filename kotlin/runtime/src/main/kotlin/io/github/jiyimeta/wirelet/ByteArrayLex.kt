@@ -10,7 +10,10 @@ package io.github.jiyimeta.wirelet
  * comparison and the natural sort over byte sequences.
  */
 public object ByteArrayLexComparator : Comparator<ByteArray> {
-    override fun compare(a: ByteArray, b: ByteArray): Int {
+    override fun compare(
+        a: ByteArray,
+        b: ByteArray,
+    ): Int {
         val n = minOf(a.size, b.size)
         for (i in 0 until n) {
             val ai = a[i].toInt() and 0xFF

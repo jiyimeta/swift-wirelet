@@ -48,9 +48,9 @@ public enum ShapeChoice: Equatable {
     case label(String)
 }
 
-// v2 of OptionalHolder for forward-compat. Tags 1, 2 are shared with v1;
-// tag 3 (`c`) is new. Decoding v2 bytes with v1's schema must silently
-// skip tag 3 via the macro-generated tag-loop + `skipUnknownField`.
+/// v2 of OptionalHolder for forward-compat. Tags 1, 2 are shared with v1;
+/// tag 3 (`c`) is new. Decoding v2 bytes with v1's schema must silently
+/// skip tag 3 via the macro-generated tag-loop + `skipUnknownField`.
 @WireFormat
 public struct OptionalHolderV2 {
     public var a: Int32
@@ -64,10 +64,10 @@ public struct OptionalHolderV2 {
     }
 }
 
-// Observable bridge fixture (Phase 4). The shape mirrors the example's
-// `TodoItem` declared at `examples/observable-counter/swift/Sources/ObservableCounterJNI/TodoItem.swift` —
-// keep the field order in sync (id, title, done) or the byte-equal
-// re-encode assertion in `observableBurst()` will break.
+/// Observable bridge fixture (Phase 4). The shape mirrors the example's
+/// `TodoItem` declared at `examples/observable-counter/swift/Sources/ObservableCounterJNI/TodoItem.swift` —
+/// keep the field order in sync (id, title, done) or the byte-equal
+/// re-encode assertion in `observableBurst()` will break.
 @WireFormat
 public struct TodoItem {
     public var id: Int32
@@ -81,10 +81,10 @@ public struct TodoItem {
     }
 }
 
-// Multi-entry Map fixture (Task 2.10 follow-up). Exercises the
-// canonical-key-sort emission in both Swift's Dictionary conformance and
-// the Kotlin emitter — proving multi-entry Maps round-trip byte-identically
-// across both languages regardless of host iteration order.
+/// Multi-entry Map fixture (Task 2.10 follow-up). Exercises the
+/// canonical-key-sort emission in both Swift's Dictionary conformance and
+/// the Kotlin emitter — proving multi-entry Maps round-trip byte-identically
+/// across both languages regardless of host iteration order.
 @WireFormat
 public struct MapHolder {
     public var m: [String: Int32]

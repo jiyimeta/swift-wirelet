@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 @testable import Wirelet
 
 @WireFormat
@@ -36,7 +36,7 @@ struct WithMixedReservedAndExplicit {
     let data = original.encodeToData()
 
     var reader = WireFormatReader(data: data)
-    let len = Int(try reader.readVarint())
+    let len = try Int(reader.readVarint())
     let slice = try reader.readBytes(count: len)
     var inner = WireFormatReader(data: slice)
 
@@ -56,7 +56,7 @@ struct WithMixedReservedAndExplicit {
     let data = original.encodeToData()
 
     var reader = WireFormatReader(data: data)
-    let len = Int(try reader.readVarint())
+    let len = try Int(reader.readVarint())
     let slice = try reader.readBytes(count: len)
     var inner = WireFormatReader(data: slice)
 

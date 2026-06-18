@@ -33,89 +33,113 @@ enum ObservableKotlinTypeMap {
 
     static func plan(
         for property: ObservableProperty,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> Plan {
         switch property.kind {
         case .primitive:
             return primitivePlan(swiftType: property.swiftTypeText)
         case .string:
-            return Plan(
-                kotlinType: "String",
-                nativeTrackReturn: "String",
-                nativeSetParam: "String",
-                decodeTemplate: "$1",
-                encodeTemplate: "$1",
-                extraImports: []
-            )
+            return stringPlan()
         case let .wireFormat(typeName):
-            let codec = config.nameTransform.apply(to: typeName) + "Codec"
-            return Plan(
-                kotlinType: config.nameTransform.apply(to: typeName),
-                nativeTrackReturn: "ByteArray",
-                nativeSetParam: "ByteArray",
-                decodeTemplate: "\(codec).decode($1)",
-                encodeTemplate: "\(codec).encode($1)",
-                extraImports: [
-                    "\(config.modelPackage).\(config.nameTransform.apply(to: typeName))",
-                    "\(config.codecPackage).\(codec)",
-                ]
-            )
+            return wireFormatPlan(typeName: typeName, config: config)
         case let .wireFormatArray(elementTypeName):
-            let codec = config.nameTransform.apply(to: elementTypeName) + "Codec"
-            let kotlin = "List<\(config.nameTransform.apply(to: elementTypeName))>"
-            return Plan(
-                kotlinType: kotlin,
-                nativeTrackReturn: "ByteArray",
-                // Setter for array properties: re-encode every element with
-                // a length-prefix + count header. Matches the WireletList
-                // shape (Phase 3 runtime).
-                nativeSetParam: "ByteArray",
-                decodeTemplate: "WireletList.decode($1, \(codec)::decodePayload)",
-                encodeTemplate: "WireletList.encode($1, \(codec)::encodePayload)",
-                extraImports: [
-                    "\(config.modelPackage).\(config.nameTransform.apply(to: elementTypeName))",
-                    "\(config.codecPackage).\(codec)",
-                    "\(config.runtimePackage).WireletList",
-                ]
-            )
+            return wireFormatArrayPlan(elementTypeName: elementTypeName, config: config)
         case .optionalPrimitive:
-            // Optional primitives transport as a 0-or-1-byte ByteArray:
-            // null = absent, single byte = present, raw value following.
-            // Matches the macro setter signature (jbyteArray?). The runtime
-            // exposes `WireletOptional` helpers that this plan references.
-            let innerKotlin = kotlinPrimitive(swiftType: stripOptional(property.swiftTypeText))
-            return Plan(
-                kotlinType: "\(innerKotlin)?",
-                nativeTrackReturn: "ByteArray?",
-                nativeSetParam: "ByteArray?",
-                decodeTemplate: "WireletOptional.decode\(innerKotlin)($1)",
-                encodeTemplate: "WireletOptional.encode\(innerKotlin)($1)",
-                extraImports: ["\(config.runtimePackage).WireletOptional"]
-            )
+            return optionalPrimitivePlan(swiftType: property.swiftTypeText, config: config)
         case .optionalString:
-            return Plan(
-                kotlinType: "String?",
-                nativeTrackReturn: "String?",
-                nativeSetParam: "String?",
-                decodeTemplate: "$1",
-                encodeTemplate: "$1",
-                extraImports: []
-            )
+            return optionalStringPlan()
         case let .optionalWireFormat(typeName):
-            let codec = config.nameTransform.apply(to: typeName) + "Codec"
-            let kotlin = config.nameTransform.apply(to: typeName)
-            return Plan(
-                kotlinType: "\(kotlin)?",
-                nativeTrackReturn: "ByteArray?",
-                nativeSetParam: "ByteArray?",
-                decodeTemplate: "$1?.let { \(codec).decode(it) }",
-                encodeTemplate: "$1?.let { \(codec).encode(it) }",
-                extraImports: [
-                    "\(config.modelPackage).\(kotlin)",
-                    "\(config.codecPackage).\(codec)",
-                ]
-            )
+            return optionalWireFormatPlan(typeName: typeName, config: config)
         }
+    }
+
+    private static func stringPlan() -> Plan {
+        Plan(
+            kotlinType: "String",
+            nativeTrackReturn: "String",
+            nativeSetParam: "String",
+            decodeTemplate: "$1",
+            encodeTemplate: "$1",
+            extraImports: [],
+        )
+    }
+
+    private static func wireFormatPlan(typeName: String, config: ObservableCodegenConfig) -> Plan {
+        let codec = config.nameTransform.apply(to: typeName) + "Codec"
+        return Plan(
+            kotlinType: config.nameTransform.apply(to: typeName),
+            nativeTrackReturn: "ByteArray",
+            nativeSetParam: "ByteArray",
+            decodeTemplate: "\(codec).decode($1)",
+            encodeTemplate: "\(codec).encode($1)",
+            extraImports: [
+                "\(config.modelPackage).\(config.nameTransform.apply(to: typeName))",
+                "\(config.codecPackage).\(codec)",
+            ],
+        )
+    }
+
+    private static func wireFormatArrayPlan(elementTypeName: String, config: ObservableCodegenConfig) -> Plan {
+        let codec = config.nameTransform.apply(to: elementTypeName) + "Codec"
+        let kotlin = "List<\(config.nameTransform.apply(to: elementTypeName))>"
+        return Plan(
+            kotlinType: kotlin,
+            nativeTrackReturn: "ByteArray",
+            // Setter for array properties: re-encode every element with
+            // a length-prefix + count header. Matches the WireletList
+            // shape (Phase 3 runtime).
+            nativeSetParam: "ByteArray",
+            decodeTemplate: "WireletList.decode($1, \(codec)::decodePayload)",
+            encodeTemplate: "WireletList.encode($1, \(codec)::encodePayload)",
+            extraImports: [
+                "\(config.modelPackage).\(config.nameTransform.apply(to: elementTypeName))",
+                "\(config.codecPackage).\(codec)",
+                "\(config.runtimePackage).WireletList",
+            ],
+        )
+    }
+
+    private static func optionalPrimitivePlan(swiftType: String, config: ObservableCodegenConfig) -> Plan {
+        // Optional primitives transport as a 0-or-1-byte ByteArray:
+        // null = absent, single byte = present, raw value following.
+        // Matches the macro setter signature (jbyteArray?). The runtime
+        // exposes `WireletOptional` helpers that this plan references.
+        let innerKotlin = kotlinPrimitive(swiftType: stripOptional(swiftType))
+        return Plan(
+            kotlinType: "\(innerKotlin)?",
+            nativeTrackReturn: "ByteArray?",
+            nativeSetParam: "ByteArray?",
+            decodeTemplate: "WireletOptional.decode\(innerKotlin)($1)",
+            encodeTemplate: "WireletOptional.encode\(innerKotlin)($1)",
+            extraImports: ["\(config.runtimePackage).WireletOptional"],
+        )
+    }
+
+    private static func optionalStringPlan() -> Plan {
+        Plan(
+            kotlinType: "String?",
+            nativeTrackReturn: "String?",
+            nativeSetParam: "String?",
+            decodeTemplate: "$1",
+            encodeTemplate: "$1",
+            extraImports: [],
+        )
+    }
+
+    private static func optionalWireFormatPlan(typeName: String, config: ObservableCodegenConfig) -> Plan {
+        let codec = config.nameTransform.apply(to: typeName) + "Codec"
+        let kotlin = config.nameTransform.apply(to: typeName)
+        return Plan(
+            kotlinType: "\(kotlin)?",
+            nativeTrackReturn: "ByteArray?",
+            nativeSetParam: "ByteArray?",
+            decodeTemplate: "$1?.let { \(codec).decode(it) }",
+            encodeTemplate: "$1?.let { \(codec).encode(it) }",
+            extraImports: [
+                "\(config.modelPackage).\(kotlin)",
+                "\(config.codecPackage).\(codec)",
+            ],
+        )
     }
 
     /// Returns the JNI-symmetric Kotlin type + native shape for a Swift
@@ -130,7 +154,7 @@ enum ObservableKotlinTypeMap {
             nativeSetParam: kotlin,
             decodeTemplate: "$1",
             encodeTemplate: "$1",
-            extraImports: []
+            extraImports: [],
         )
     }
 
@@ -162,44 +186,56 @@ enum ObservableKotlinTypeMap {
     /// `external fun` parameter type, and an encode expression factory.
     static func invokeArg(
         forArgType swiftType: String,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> (kotlinType: String, externalFunType: String, encodeExpr: (String) -> String) {
         switch InvokeArgClassifier.classify(swiftType) {
-        case .primitive(_, let cast):
+        case let .primitive(_, cast):
             let kt = kotlinPrimitive(swiftType: cast)
             return (kt, kt, { name in name })
         case .bool:
             return ("Boolean", "Boolean", { name in name })
         case .string:
             return ("String", "String", { name in name })
-        case .wireFormat(let typeName):
+        case let .wireFormat(typeName):
             let kt = config.nameTransform.apply(to: typeName)
             let codec = kt + "Codec"
             return (kt, "ByteArray", { name in "\(codec).encode(\(name))" })
-        case .optionalPrimitive(let inner):
+        case let .optionalPrimitive(inner):
             let kt = kotlinPrimitive(swiftType: inner)
-            return ("\(kt)?", "ByteArray?",
-                    { name in "WireletOptional.encode\(kt)(\(name))" })
+            return (
+                "\(kt)?",
+                "ByteArray?",
+                { name in "WireletOptional.encode\(kt)(\(name))" },
+            )
         case .optionalString:
             return ("String?", "String?", { name in name })
-        case .optionalWireFormat(let typeName):
+        case let .optionalWireFormat(typeName):
             let kt = config.nameTransform.apply(to: typeName)
             let codec = kt + "Codec"
-            return ("\(kt)?", "ByteArray?",
-                    { name in "\(name)?.let { \(codec).encode(it) }" })
-        case .array(let elementTypeName):
+            return (
+                "\(kt)?",
+                "ByteArray?",
+                { name in "\(name)?.let { \(codec).encode(it) }" },
+            )
+        case let .array(elementTypeName):
             // Array of the primitive `String`: there is no generated
             // `StringCodec`, so route through the runtime's `encodeStrings`
             // (bare-UTF-8 element payloads, length-prefixed by WireletList).
             if case .string = InvokeArgClassifier.classify(elementTypeName) {
-                return ("List<String>", "ByteArray",
-                        { name in "WireletList.encodeStrings(\(name))" })
+                return (
+                    "List<String>",
+                    "ByteArray",
+                    { name in "WireletList.encodeStrings(\(name))" },
+                )
             }
             let kt = config.nameTransform.apply(to: elementTypeName)
             let codec = kt + "Codec"
             let listType = "List<\(kt)>"
-            return (listType, "ByteArray",
-                    { name in "WireletList.encode(\(name), \(codec)::encodePayload)" })
+            return (
+                listType,
+                "ByteArray",
+                { name in "WireletList.encode(\(name), \(codec)::encodePayload)" },
+            )
         }
     }
 
@@ -213,30 +249,38 @@ enum ObservableKotlinTypeMap {
     /// caller handles a `Void` return (no return clause) before calling this.
     static func invokeReturn(
         forReturnType swiftType: String,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> (kotlinType: String, externalFunType: String, decodeExpr: (String) -> String, imports: Set<String>) {
         switch InvokeArgClassifier.classify(swiftType) {
-        case .primitive(_, let cast):
+        case let .primitive(_, cast):
             let kt = kotlinPrimitive(swiftType: cast)
             return (kt, kt, { $0 }, [])
         case .bool:
             return ("Boolean", "Boolean", { $0 }, [])
         case .string:
             return ("String", "String", { $0 }, [])
-        case .wireFormat(let typeName):
+        case let .wireFormat(typeName):
             let kt = config.nameTransform.apply(to: typeName)
             let codec = kt + "Codec"
-            return (kt, "ByteArray", { "\(codec).decode(\($0))" },
-                    ["\(config.modelPackage).\(kt)", "\(config.codecPackage).\(codec)"])
-        case .array(let elementTypeName):
+            return (
+                kt,
+                "ByteArray",
+                { "\(codec).decode(\($0))" },
+                ["\(config.modelPackage).\(kt)", "\(config.codecPackage).\(codec)"],
+            )
+        case let .array(elementTypeName):
             let kt = config.nameTransform.apply(to: elementTypeName)
             let codec = kt + "Codec"
-            return ("List<\(kt)>", "ByteArray", { "WireletList.decode(\($0), \(codec)::decodePayload)" },
-                    [
-                        "\(config.modelPackage).\(kt)",
-                        "\(config.codecPackage).\(codec)",
-                        "\(config.runtimePackage).WireletList",
-                    ])
+            return (
+                "List<\(kt)>",
+                "ByteArray",
+                { "WireletList.decode(\($0), \(codec)::decodePayload)" },
+                [
+                    "\(config.modelPackage).\(kt)",
+                    "\(config.codecPackage).\(codec)",
+                    "\(config.runtimePackage).WireletList",
+                ],
+            )
         case .optionalString, .optionalPrimitive, .optionalWireFormat:
             // Optional returns are unsupported (the Swift bridge emits a build-time #error first). Provide a
             // harmless mapping so emission itself doesn't crash; the build fails on the Swift side.

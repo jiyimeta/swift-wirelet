@@ -16,13 +16,13 @@ import PackagePlugin
 struct WireletProvidedBridgesPlugin: BuildToolPlugin {
     func createBuildCommands(
         context: PluginContext,
-        target: any Target
+        target: any Target,
     ) async throws -> [Command] {
         guard let sourceTarget = target as? SourceModuleTarget else { return [] }
         let cli = try context.tool(named: "EmitWireletProvidedSwiftBridges")
         let outputDirURL = context.pluginWorkDirectoryURL.appending(
             path: "GeneratedProxies",
-            directoryHint: .isDirectory
+            directoryHint: .isDirectory,
         )
         // Pre-compute output file names by scanning source files for
         // @WireletProvided protocol declarations. This is intentionally
@@ -51,7 +51,7 @@ struct WireletProvidedBridgesPlugin: BuildToolPlugin {
                 executable: cli.url,
                 arguments: arguments,
                 inputFiles: inputFiles,
-                outputFiles: outputFiles
+                outputFiles: outputFiles,
             ),
         ]
     }

@@ -9,10 +9,13 @@ import kotlin.test.assertTrue
 
 class ObservableAndCodecsCoexistTest {
     @Test
-    fun bothTaskChainsRunWithDisjointOutputs(@TempDir tempDir: File) {
+    fun bothTaskChainsRunWithDisjointOutputs(
+        @TempDir tempDir: File,
+    ) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 wirelet {
                     swiftPackagePath.set(file(${'"'}${wireletRepoRoot.absolutePath}${'"'}))
                     sources {
@@ -34,12 +37,13 @@ class ObservableAndCodecsCoexistTest {
                     }
                 }
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Counter.swift",
-            content = """
+            content =
+                """
                 import Observation
                 import WireletObservable
 
@@ -49,12 +53,13 @@ class ObservableAndCodecsCoexistTest {
                     public var count: Int32 = 0
                     public init() {}
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Point.swift",
-            content = """
+            content =
+                """
                 import Wirelet
 
                 @WireFormat
@@ -66,14 +71,15 @@ class ObservableAndCodecsCoexistTest {
                         self.y = y
                     }
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
-        val result = runner(
-            tempDir,
-            "generateWireletCodecsMain",
-            "generateWireletObservableViewModelsMain",
-        ).build()
+        val result =
+            runner(
+                tempDir,
+                "generateWireletCodecsMain",
+                "generateWireletObservableViewModelsMain",
+            ).build()
 
         assertEquals(
             TaskOutcome.SUCCESS,
@@ -86,14 +92,16 @@ class ObservableAndCodecsCoexistTest {
             "observable generate task did not run to SUCCESS",
         )
 
-        val codecFile = tempDir.resolve(
-            "build/generated/wirelet/main/kotlin/" +
-                "com/example/fixture/codec/PointCodec.kt",
-        )
-        val viewModelFile = tempDir.resolve(
-            "build/generated/wirelet/observable/main/kotlin/" +
-                "com/example/fixture/viewmodels/CounterViewModel.kt",
-        )
+        val codecFile =
+            tempDir.resolve(
+                "build/generated/wirelet/main/kotlin/" +
+                    "com/example/fixture/codec/PointCodec.kt",
+            )
+        val viewModelFile =
+            tempDir.resolve(
+                "build/generated/wirelet/observable/main/kotlin/" +
+                    "com/example/fixture/viewmodels/CounterViewModel.kt",
+            )
         assertTrue(codecFile.exists(), "PointCodec missing: $codecFile")
         assertTrue(viewModelFile.exists(), "CounterViewModel missing: $viewModelFile")
     }

@@ -9,10 +9,13 @@ import kotlin.test.assertTrue
 
 class SingleSourceSetTest {
     @Test
-    fun generatesCodecsAndProducesKotlinSource(@TempDir tempDir: File) {
+    fun generatesCodecsAndProducesKotlinSource(
+        @TempDir tempDir: File,
+    ) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 dependencies {
                     implementation("io.github.jiyimeta:wirelet-runtime:0.0.0-SNAPSHOT")
                 }
@@ -27,12 +30,13 @@ class SingleSourceSetTest {
                 // Avoid resolving the runtime artifact (not published yet);
                 // we only care that the generate task itself succeeds.
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Point.swift",
-            content = """
+            content =
+                """
                 import Wirelet
 
                 @WireFormat
@@ -44,7 +48,7 @@ class SingleSourceSetTest {
                         self.y = y
                     }
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
         val result = runner(tempDir, "generateWireletCodecsMain").build()
@@ -54,9 +58,10 @@ class SingleSourceSetTest {
             result.task(":generateWireletCodecsMain")?.outcome,
             "generate task did not run to SUCCESS",
         )
-        val expectedCodec = tempDir.resolve(
-            "build/generated/wirelet/main/kotlin/com/example/fixture/codec/PointCodec.kt",
-        )
+        val expectedCodec =
+            tempDir.resolve(
+                "build/generated/wirelet/main/kotlin/com/example/fixture/codec/PointCodec.kt",
+            )
         assertTrue(expectedCodec.exists(), "codec file not written at $expectedCodec")
         val content = expectedCodec.readText()
         assertTrue(

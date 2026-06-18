@@ -31,7 +31,7 @@ public struct ObservableViewModel: Equatable, Sendable {
         name: String,
         properties: [ObservableProperty],
         methods: [ObservableMethod],
-        initParameters: [ObservableInitParameter] = []
+        initParameters: [ObservableInitParameter] = [],
     ) {
         self.name = name
         self.properties = properties
@@ -55,7 +55,7 @@ public struct ObservableProperty: Equatable, Sendable {
         name: String,
         swiftTypeText: String,
         kind: ObservablePropertyKind,
-        isMutable: Bool
+        isMutable: Bool,
     ) {
         self.name = name
         self.swiftTypeText = swiftTypeText
@@ -110,7 +110,7 @@ public struct ObservableMethod: Equatable, Sendable {
     public init(
         name: String,
         parameters: [ObservableMethodParameter],
-        returnTypeText: String? = nil
+        returnTypeText: String? = nil,
     ) {
         self.name = name
         self.parameters = parameters

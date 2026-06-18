@@ -1,7 +1,7 @@
 import Foundation
 import Testing
-@testable import WireletObservableKotlinEmitter
 import WireletKotlinEmitter
+@testable import WireletObservableKotlinEmitter
 import WireletObservableSchema
 
 private func makeTestConfig() -> ObservableCodegenConfig {
@@ -10,12 +10,12 @@ private func makeTestConfig() -> ObservableCodegenConfig {
         modelPackage: "com.example.app.model",
         codecPackage: "com.example.app.codecs",
         libraryName: "ExampleJNI",
-        nameTransform: .identity
+        nameTransform: .identity,
     )
 }
 
 @Suite struct ViewModelEmitterTests {
-    @Test func multiArgInvokeEmission() throws {
+    @Test func multiArgInvokeEmission() {
         let vm = ObservableViewModel(
             name: "Demo",
             properties: [],
@@ -25,9 +25,9 @@ private func makeTestConfig() -> ObservableCodegenConfig {
                     parameters: [
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "Int32"),
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "Bool"),
-                    ]
+                    ],
                 ),
-            ]
+            ],
         )
         let output = ViewModelEmitter.emit(vm, config: makeTestConfig()).content
         #expect(output.contains("fun setDone(arg0: Int, arg1: Boolean) ="))
@@ -35,7 +35,7 @@ private func makeTestConfig() -> ObservableCodegenConfig {
         #expect(output.contains("private external fun nativeSetDone(self: Long, arg0: Int, arg1: Boolean)"))
     }
 
-    @Test func returnTypeEmission() throws {
+    @Test func returnTypeEmission() {
         let vm = ObservableViewModel(
             name: "Demo",
             properties: [],
@@ -48,10 +48,10 @@ private func makeTestConfig() -> ObservableCodegenConfig {
                     parameters: [
                         ObservableMethodParameter(label: "_", internalName: "id", typeText: "String"),
                     ],
-                    returnTypeText: "String"
+                    returnTypeText: "String",
                 ),
                 ObservableMethod(name: "noop", parameters: [], returnTypeText: nil),
-            ]
+            ],
         )
         let output = ViewModelEmitter.emit(vm, config: makeTestConfig()).content
 
@@ -62,7 +62,9 @@ private func makeTestConfig() -> ObservableCodegenConfig {
         #expect(output.contains("fun count(): Int = nativeCount(nativePtr)"))
         #expect(output.contains("private external fun nativeCount(self: Long): Int"))
         // Wire array return: decode via WireletList + codec.
-        #expect(output.contains("fun snapshot(): List<TodoItem> = WireletList.decode(nativeSnapshot(nativePtr), TodoItemCodec::decodePayload)"))
+        let snapshotDecl = "fun snapshot(): List<TodoItem> = WireletList.decode("
+            + "nativeSnapshot(nativePtr), TodoItemCodec::decodePayload)"
+        #expect(output.contains(snapshotDecl))
         #expect(output.contains("private external fun nativeSnapshot(self: Long): ByteArray"))
         // Arg + String return.
         #expect(output.contains("fun export(id: String): String ="))

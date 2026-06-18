@@ -3,7 +3,7 @@ import Testing
 
 @Test func cliEmitsTodoStoreAdapter() throws {
     let fixturesDir = try #require(
-        Bundle.module.resourceURL?.appendingPathComponent("Fixtures")
+        Bundle.module.resourceURL?.appendingPathComponent("Fixtures"),
     )
     let sourcesDir = fixturesDir.appendingPathComponent("sources")
     let configPath = fixturesDir.appendingPathComponent("provided-codegen.json")
@@ -20,7 +20,7 @@ import Testing
 
     // The emitter places <Service>.kt at interfacePackage (dots→slashes).
     let expectedPath = outputDir.appendingPathComponent(
-        "io/github/jiyimeta/sample/provided/generated/TodoStore.kt"
+        "io/github/jiyimeta/sample/provided/generated/TodoStore.kt",
     )
     #expect(FileManager.default.fileExists(atPath: expectedPath.path))
 
@@ -31,7 +31,7 @@ import Testing
 
 @Test func cliIsIdempotent() throws {
     let fixturesDir = try #require(
-        Bundle.module.resourceURL?.appendingPathComponent("Fixtures")
+        Bundle.module.resourceURL?.appendingPathComponent("Fixtures"),
     )
     let sourcesDir = fixturesDir.appendingPathComponent("sources")
     let configPath = fixturesDir.appendingPathComponent("provided-codegen.json")
@@ -45,7 +45,7 @@ import Testing
     try runCLI(executable: executable, config: configPath, source: sourcesDir, output: outputDir)
 
     let expectedPath = outputDir.appendingPathComponent(
-        "io/github/jiyimeta/sample/provided/generated/TodoStore.kt"
+        "io/github/jiyimeta/sample/provided/generated/TodoStore.kt",
     )
 
     // Idempotency: second run preserves mtime.
@@ -65,7 +65,7 @@ private func runCLI(
     config: URL,
     source: URL,
     output: URL,
-    includePackages: [String] = []
+    includePackages: [String] = [],
 ) throws {
     let process = Process()
     process.executableURL = executable

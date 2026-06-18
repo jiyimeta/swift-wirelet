@@ -1,6 +1,6 @@
 import Testing
-import WireletObservableSchema
 @testable import WireletObservableKotlinEmitter
+import WireletObservableSchema
 
 /// Regression guard for `[String]` (array-of-primitive) `@WireletExpose`
 /// method arguments. Primitives have no generated `<Type>Codec`, so the
@@ -17,21 +17,21 @@ struct StringListArgEmitterTests {
                     name: "items",
                     swiftTypeText: "[TodoItem]",
                     kind: .wireFormatArray(elementTypeName: "TodoItem"),
-                    isMutable: true
+                    isMutable: true,
                 ),
             ],
             methods: [
                 ObservableMethod(name: "addTitles", parameters: [
                     ObservableMethodParameter(label: "_", internalName: "titles", typeText: "[String]"),
                 ]),
-            ]
+            ],
         )
         let config = ObservableCodegenConfig(
             viewModelPackage: "com.example.generated",
             modelPackage: "com.example",
             codecPackage: "com.example.codecs",
             libraryName: "ExampleJNI",
-            nameTransform: .stripSuffix("VM")
+            nameTransform: .stripSuffix("VM"),
         )
 
         let files = ObservableKotlinEmitter(config: config)

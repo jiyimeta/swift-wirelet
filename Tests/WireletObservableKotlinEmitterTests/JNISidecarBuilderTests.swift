@@ -8,7 +8,7 @@ private func makeConfig() -> ObservableCodegenConfig {
         modelPackage: "com.example.model",
         codecPackage: "com.example.codecs",
         libraryName: "ExampleJNI",
-        nameTransform: .identity
+        nameTransform: .identity,
     )
 }
 
@@ -23,16 +23,16 @@ private func makeConfig() -> ObservableCodegenConfig {
                     parameters: [
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "Int32"),
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "Bool"),
-                    ]
+                    ],
                 ),
                 ObservableMethod(
                     name: "render",
                     parameters: [
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "Int32"),
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "TodoItem"),
-                    ]
+                    ],
                 ),
-            ]
+            ],
         )
         let schema = ObservableSchema(viewModels: [vm])
         let config = makeConfig()
@@ -58,10 +58,10 @@ private func makeConfig() -> ObservableCodegenConfig {
                     parameters: [
                         ObservableMethodParameter(label: "_", internalName: nil, typeText: "String"),
                     ],
-                    returnTypeText: "String"
+                    returnTypeText: "String",
                 ),
                 ObservableMethod(name: "noReturn", parameters: [], returnTypeText: nil),
-            ]
+            ],
         )
         let sidecar = JNISidecarBuilder.build(schema: ObservableSchema(viewModels: [vm]), config: makeConfig())
         let registration = try #require(sidecar.viewModels.first)
@@ -83,12 +83,12 @@ private func makeConfig() -> ObservableCodegenConfig {
             methods: [],
             initParameters: [
                 ObservableInitParameter(label: "store", internalName: nil, typeText: "TodoStore"),
-            ]
+            ],
         )
         var config = makeConfig()
         config.providedAdapterPackage = "com.example.iface"
         let sidecar = JNISidecarBuilder.build(
-            schema: ObservableSchema(viewModels: [vm]), config: config
+            schema: ObservableSchema(viewModels: [vm]), config: config,
         )
         let registration = try #require(sidecar.viewModels.first)
         let nativeNew = try #require(registration.nativeMethods.first { $0.name == "nativeNew" })
@@ -101,10 +101,10 @@ private func makeConfig() -> ObservableCodegenConfig {
             name: "TodoListVM",
             properties: [],
             methods: [],
-            initParameters: []
+            initParameters: [],
         )
         let sidecar = JNISidecarBuilder.build(
-            schema: ObservableSchema(viewModels: [vm]), config: makeConfig()
+            schema: ObservableSchema(viewModels: [vm]), config: makeConfig(),
         )
         let registration = try #require(sidecar.viewModels.first)
         let nativeNew = try #require(registration.nativeMethods.first { $0.name == "nativeNew" })

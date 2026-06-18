@@ -9,20 +9,19 @@ private func makeConfig(
     adapterPackage: String = "com.example.iface",
     modelPackage: String = "com.example.model",
     codecPackage: String = "com.example.codec",
-    runtimePackage: String = "io.github.jiyimeta.wirelet.observable"
+    runtimePackage: String = "io.github.jiyimeta.wirelet.observable",
 ) -> ProvidedCodegenConfig {
     ProvidedCodegenConfig(
         interfacePackage: interfacePackage,
         adapterPackage: adapterPackage,
         modelPackage: modelPackage,
         codecPackage: codecPackage,
-        runtimePackage: runtimePackage
+        runtimePackage: runtimePackage,
     )
 }
 
 @Suite("ProvidedKotlinEmitterTests")
 struct ProvidedKotlinEmitterTests {
-
     // MARK: - 1. todoStoreGolden
 
     /// Reproduces the hand-written `TodoStore.kt` golden (minus `InMemoryTodoStore`
@@ -73,7 +72,9 @@ struct ProvidedKotlinEmitterTests {
         #expect(c.contains("class TodoStoreNativeAdapter(private val impl: TodoStore) {"))
 
         // Adapter wire methods.
-        #expect(c.contains("fun loadAllWire(): ByteArray = WireletList.encode(impl.loadAll(), TodoItemCodec::encodePayload)"))
+        let loadAllWire = "fun loadAllWire(): ByteArray = WireletList.encode("
+            + "impl.loadAll(), TodoItemCodec::encodePayload)"
+        #expect(c.contains(loadAllWire))
         #expect(c.contains("fun addWire(item: ByteArray) { impl.add(TodoItemCodec.decode(item)) }"))
         #expect(c.contains("fun removeWire(id: Int) { impl.remove(id) }"))
     }

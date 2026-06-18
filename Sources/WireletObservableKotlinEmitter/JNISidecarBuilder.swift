@@ -56,7 +56,7 @@ public enum JNISidecarBuilder {
     /// correct `RegisterNatives` mappings.
     public static func build(
         schema: ObservableSchema,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> JNISidecar {
         let vms = schema.viewModels.map { vm in
             buildViewModel(vm, config: config)
@@ -68,7 +68,7 @@ public enum JNISidecarBuilder {
 
     private static func buildViewModel(
         _ vm: ObservableViewModel,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> JNISidecarViewModel {
         let kotlinBase = config.nameTransform.apply(to: vm.name)
         let kotlinClassName = "\(kotlinBase)ViewModel"
@@ -82,7 +82,7 @@ public enum JNISidecarBuilder {
         methods.append(JNISidecarNativeMethod(
             name: "nativeNew",
             signature: nativeNewSignature(vm: vm, config: config),
-            cdeclSymbol: "WireletObservable_\(vm.name)_new"
+            cdeclSymbol: "WireletObservable_\(vm.name)_new",
         ))
 
         // 2. track methods (one per property)
@@ -93,7 +93,7 @@ public enum JNISidecarBuilder {
             methods.append(JNISidecarNativeMethod(
                 name: nativeName,
                 signature: sig,
-                cdeclSymbol: "WireletObservable_\(vm.name)_\(property.name)_track"
+                cdeclSymbol: "WireletObservable_\(vm.name)_\(property.name)_track",
             ))
         }
 
@@ -106,7 +106,7 @@ public enum JNISidecarBuilder {
             methods.append(JNISidecarNativeMethod(
                 name: nativeName,
                 signature: sig,
-                cdeclSymbol: "WireletObservable_\(vm.name)_\(property.name)_set"
+                cdeclSymbol: "WireletObservable_\(vm.name)_\(property.name)_set",
             ))
         }
 
@@ -122,13 +122,13 @@ public enum JNISidecarBuilder {
         methods.append(JNISidecarNativeMethod(
             name: "nativeRelease",
             signature: "(J)V",
-            cdeclSymbol: "WireletObservable_\(vm.name)_release"
+            cdeclSymbol: "WireletObservable_\(vm.name)_release",
         ))
 
         return JNISidecarViewModel(
             swiftClass: vm.name,
             kotlinClassFQN: fqn,
-            nativeMethods: methods
+            nativeMethods: methods,
         )
     }
 
@@ -150,14 +150,14 @@ public enum JNISidecarBuilder {
     /// force-unwrap to fail loudly rather than emit an invalid descriptor.
     private static func nativeNewSignature(
         vm: ObservableViewModel,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> String {
         guard !vm.initParameters.isEmpty else { return "()J" }
         guard let pkg = config.providedAdapterPackage else {
             preconditionFailure(
                 "providedAdapterPackage is required when a @WireletObservable "
                     + "class has injected init parameters (view-model '\(vm.name)'). "
-                    + "Set it in the observable Gradle DSL / codegen config."
+                    + "Set it in the observable Gradle DSL / codegen config.",
             )
         }
         let pkgSlashes = pkg.replacingOccurrences(of: ".", with: "/")
@@ -184,7 +184,7 @@ public enum JNISidecarBuilder {
     private static func methodEntry(
         method: ObservableMethod,
         vmName: String,
-        config: ObservableCodegenConfig
+        config: ObservableCodegenConfig,
     ) -> JNISidecarNativeMethod? {
         let nativeName = "native\(capitalised(method.name))"
         let cdecl = "WireletObservable_\(vmName)_\(method.name)_invoke"
@@ -194,7 +194,7 @@ public enum JNISidecarBuilder {
         return JNISidecarNativeMethod(
             name: nativeName,
             signature: "(J\(argDescriptors))\(jniReturnDescriptor(method.returnTypeText))",
-            cdeclSymbol: cdecl
+            cdeclSymbol: cdecl,
         )
     }
 
@@ -209,17 +209,17 @@ public enum JNISidecarBuilder {
     /// JNI type descriptor for one method-arg type (no `J` self prefix, no return type).
     private static func jniArgDescriptor(forArgType swiftType: String) -> String {
         switch InvokeArgClassifier.classify(swiftType) {
-        case .primitive(let jniSwiftType, _):
+        case let .primitive(jniSwiftType, _):
             switch jniSwiftType {
-            case "jint":     return "I"
-            case "jlong":    return "J"
-            case "jfloat":   return "F"
-            case "jdouble":  return "D"
+            case "jint": return "I"
+            case "jlong": return "J"
+            case "jfloat": return "F"
+            case "jdouble": return "D"
             case "jboolean": return "Z"
             default: return "[B"
             }
-        case .bool:                                  return "Z"
-        case .string, .optionalString:               return "Ljava/lang/String;"
+        case .bool: return "Z"
+        case .string, .optionalString: return "Ljava/lang/String;"
         case .wireFormat,
              .optionalPrimitive,
              .optionalWireFormat,
@@ -237,16 +237,16 @@ public enum JNISidecarBuilder {
         let base = kotlinType.hasSuffix("?") ? String(kotlinType.dropLast()) : kotlinType
         switch base {
         case "Boolean": return "Z"
-        case "Byte":    return "B"
-        case "Char":    return "C"
-        case "Short":   return "S"
-        case "Int":     return "I"
-        case "Long":    return "J"
-        case "Float":   return "F"
-        case "Double":  return "D"
+        case "Byte": return "B"
+        case "Char": return "C"
+        case "Short": return "S"
+        case "Int": return "I"
+        case "Long": return "J"
+        case "Float": return "F"
+        case "Double": return "D"
         case "Void", "Unit": return "V"
         case "ByteArray": return "[B"
-        case "String":  return "Ljava/lang/String;"
+        case "String": return "Ljava/lang/String;"
         default:
             // For nullable variants and other types, fall back to ByteArray
             // (all Optional primitive and Optional wireformat types are

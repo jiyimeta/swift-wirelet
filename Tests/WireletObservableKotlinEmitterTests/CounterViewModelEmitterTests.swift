@@ -1,7 +1,7 @@
 import Foundation
 import Testing
-@testable import WireletObservableKotlinEmitter
 import WireletKotlinEmitter
+@testable import WireletObservableKotlinEmitter
 import WireletObservableSchema
 
 @Test func emitsCounterViewModel() throws {
@@ -12,17 +12,17 @@ import WireletObservableSchema
                 name: "count",
                 swiftTypeText: "Int32",
                 kind: .primitive,
-                isMutable: true
+                isMutable: true,
             ),
         ],
-        methods: []
+        methods: [],
     )
     let config = ObservableCodegenConfig(
         viewModelPackage: "com.example.app.viewmodels",
         modelPackage: "com.example.app.model",
         codecPackage: "com.example.app.codecs",
         libraryName: "CounterJNI",
-        nameTransform: .stripSuffix("VM")
+        nameTransform: .stripSuffix("VM"),
     )
 
     let files = ObservableKotlinEmitter(config: config)
@@ -30,13 +30,15 @@ import WireletObservableSchema
 
     #expect(files.count == 1)
     let actual = try #require(files.first)
-    #expect(actual.relativePath ==
-        "com/example/app/viewmodels/CounterViewModel.kt")
+    #expect(
+        actual.relativePath ==
+            "com/example/app/viewmodels/CounterViewModel.kt",
+    )
 
     let url = try #require(Bundle.module.url(
         forResource: "CounterViewModel.expected",
         withExtension: "kt",
-        subdirectory: "Fixtures"
+        subdirectory: "Fixtures",
     ))
     let expected = try String(contentsOf: url, encoding: .utf8)
     if actual.content != expected {
@@ -44,7 +46,7 @@ import WireletObservableSchema
         try? actual.content.write(
             toFile: "/tmp/CounterViewModel.actual.kt",
             atomically: true,
-            encoding: .utf8
+            encoding: .utf8,
         )
         Issue.record("""
         Golden mismatch. Actual written to /tmp/CounterViewModel.actual.kt.
@@ -59,7 +61,7 @@ private func diff(expected: String, actual: String) -> String {
     let a = actual.split(separator: "\n", omittingEmptySubsequences: false)
     var out: [String] = []
     let n = max(e.count, a.count)
-    for i in 0..<n {
+    for i in 0 ..< n {
         let l = i < e.count ? String(e[i]) : "<EOF>"
         let r = i < a.count ? String(a[i]) : "<EOF>"
         if l != r {

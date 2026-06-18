@@ -4,7 +4,7 @@ import Testing
 
 @Observable
 final class Counter {
-    var value: Int = 0
+    var value = 0
 }
 
 @Suite struct ObservationTrackingHelperTests {

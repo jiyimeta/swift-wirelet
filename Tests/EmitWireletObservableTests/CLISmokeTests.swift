@@ -3,7 +3,7 @@ import Testing
 
 @Test func cliEmitsTodoListViewModel() throws {
     let fixturesDir = try #require(
-        Bundle.module.resourceURL?.appendingPathComponent("Fixtures")
+        Bundle.module.resourceURL?.appendingPathComponent("Fixtures"),
     )
     let sourcesDir = fixturesDir.appendingPathComponent("sources")
     let configPath = fixturesDir.appendingPathComponent("observable-codegen.json")
@@ -19,7 +19,7 @@ import Testing
     try runCLI(executable: executable, config: configPath, source: sourcesDir, output: outputDir)
 
     let expectedPath = outputDir.appendingPathComponent(
-        "io/github/jiyimeta/observablecounter/generated/TodoListViewModel.kt"
+        "io/github/jiyimeta/observablecounter/generated/TodoListViewModel.kt",
     )
     #expect(FileManager.default.fileExists(atPath: expectedPath.path))
 
@@ -32,7 +32,7 @@ import Testing
 
 @Test func cliIncludePackageFiltersOutput() throws {
     let fixturesDir = try #require(
-        Bundle.module.resourceURL?.appendingPathComponent("Fixtures")
+        Bundle.module.resourceURL?.appendingPathComponent("Fixtures"),
     )
     let sourcesDir = fixturesDir.appendingPathComponent("sources")
     let configPath = fixturesDir.appendingPathComponent("observable-codegen.json")
@@ -47,17 +47,17 @@ import Testing
     // Filtering by a non-matching package emits zero files.
     try runCLI(
         executable: executable, config: configPath, source: sourcesDir, output: outputDir,
-        includePackages: ["io.example.other"]
+        includePackages: ["io.example.other"],
     )
     let viewModelPath = outputDir.appendingPathComponent(
-        "io/github/jiyimeta/observablecounter/generated/TodoListViewModel.kt"
+        "io/github/jiyimeta/observablecounter/generated/TodoListViewModel.kt",
     )
     #expect(!FileManager.default.fileExists(atPath: viewModelPath.path))
 
     // Matching package emits the expected file.
     try runCLI(
         executable: executable, config: configPath, source: sourcesDir, output: outputDir,
-        includePackages: ["io.github.jiyimeta.observablecounter.generated"]
+        includePackages: ["io.github.jiyimeta.observablecounter.generated"],
     )
     #expect(FileManager.default.fileExists(atPath: viewModelPath.path))
 }
@@ -72,7 +72,7 @@ private func runCLI(
     config: URL,
     source: URL,
     output: URL,
-    includePackages: [String] = []
+    includePackages: [String] = [],
 ) throws {
     let process = Process()
     process.executableURL = executable

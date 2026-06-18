@@ -9,10 +9,13 @@ import kotlin.test.assertTrue
 
 class ObservableSourceSetTest {
     @Test
-    fun generatesViewModelKotlinForSimpleCounter(@TempDir tempDir: File) {
+    fun generatesViewModelKotlinForSimpleCounter(
+        @TempDir tempDir: File,
+    ) {
         layoutFixture(
             dir = tempDir,
-            extraBuildScript = """
+            extraBuildScript =
+                """
                 wirelet {
                     swiftPackagePath.set(file(${'"'}${wireletRepoRoot.absolutePath}${'"'}))
                     observable {
@@ -29,12 +32,13 @@ class ObservableSourceSetTest {
                 // we only care that the generate task itself succeeds and
                 // wires output into the kotlin source set's srcDirs.
                 tasks.named("compileKotlin") { enabled = false }
-            """.trimIndent(),
+                """.trimIndent(),
         )
         writeSchemaFile(
             dir = tempDir,
             relativePath = "schema/Counter.swift",
-            content = """
+            content =
+                """
                 import Observation
                 import WireletObservable
 
@@ -44,7 +48,7 @@ class ObservableSourceSetTest {
                     public var count: Int32 = 0
                     public init() {}
                 }
-            """.trimIndent(),
+                """.trimIndent(),
         )
 
         val result = runner(tempDir, "generateWireletObservableViewModelsMain").build()
@@ -54,10 +58,11 @@ class ObservableSourceSetTest {
             result.task(":generateWireletObservableViewModelsMain")?.outcome,
             "observable generate task did not run to SUCCESS",
         )
-        val expectedVM = tempDir.resolve(
-            "build/generated/wirelet/observable/main/kotlin/" +
-                "com/example/fixture/viewmodels/CounterViewModel.kt",
-        )
+        val expectedVM =
+            tempDir.resolve(
+                "build/generated/wirelet/observable/main/kotlin/" +
+                    "com/example/fixture/viewmodels/CounterViewModel.kt",
+            )
         assertTrue(expectedVM.exists(), "view-model file not written at $expectedVM")
         val content = expectedVM.readText()
         assertTrue(

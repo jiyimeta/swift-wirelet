@@ -37,7 +37,7 @@ extension WireletObservableProperty {
                 swiftTypeText: typeText,
                 kind: kind,
                 isMutable: isMutable,
-                isIgnored: isIgnored
+                isIgnored: isIgnored,
             ))
         }
         return out

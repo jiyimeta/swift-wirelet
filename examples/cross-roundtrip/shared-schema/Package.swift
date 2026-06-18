@@ -15,7 +15,7 @@ let package = Package(
             name: "SharedSchema",
             dependencies: [
                 .product(name: "Wirelet", package: "swift-wirelet"),
-            ]
+            ],
         ),
-    ]
+    ],
 )

@@ -1,7 +1,7 @@
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
-import XCTest
 @testable import WireletMacros
+import XCTest
 
 private let diagMacros: [String: Macro.Type] = [
     "WireFormat": WireFormatMacro.self,
@@ -9,6 +9,131 @@ private let diagMacros: [String: Macro.Type] = [
     "WireFormatChoice": WireFormatChoiceMacro.self,
     "WireFormatField": WireFormatFieldMacro.self,
 ]
+
+// MARK: - Case 3 fixtures: @WireFormatChoice on enum without associated values
+
+private let choiceWithoutAssociatedValuesSource = """
+@WireFormatChoice
+enum Color {
+    case red
+    case green
+    case blue
+}
+"""
+
+private let choiceWithoutAssociatedValuesExpanded = """
+enum Color {
+    case red
+    case green
+    case blue
+}
+
+extension Color: WireFormatEncodable, WireFormatDecodable {
+    public static var wireType: WireType {
+        .lengthDelimited
+    }
+
+    public func encodePayload(into writer: inout WireFormatWriter) {
+        switch self {
+        case .red:
+            writer.writeVarint(UInt64(0))
+        case .green:
+            writer.writeVarint(UInt64(1))
+        case .blue:
+            writer.writeVarint(UInt64(2))
+        }
+    }
+
+    public func encode(into writer: inout WireFormatWriter) {
+        writer.writeLengthPrefixed { inner in
+            encodePayload(into: &inner)
+        }
+    }
+
+    public init(decodingPayload reader: inout WireFormatReader) throws {
+        let disc = try reader.readVarint()
+        switch disc {
+        case 0:
+            self = .red
+        case 1:
+            self = .green
+        case 2:
+            self = .blue
+        default:
+            throw WireFormatError.unknownChoiceDiscriminator(UInt32(truncatingIfNeeded: disc))
+        }
+    }
+
+    public init(from reader: inout WireFormatReader) throws {
+        let len = Int(try reader.readVarint())
+        let slice = try reader.readBytes(count: len)
+        var inner = WireFormatReader(data: slice)
+        try self.init(decodingPayload: &inner)
+    }
+}
+"""
+
+// MARK: - Case 5 fixtures: @WireFormatField on computed property
+
+private let fieldOnComputedPropertySource = """
+@WireFormat
+struct Foo {
+    var x: Int32
+    @WireFormatField(tag: 2) var doubled: Int32 {
+        x * 2
+    }
+}
+"""
+
+private let fieldOnComputedPropertyExpanded = """
+struct Foo {
+    var x: Int32
+    var doubled: Int32 {
+        x * 2
+    }
+}
+
+extension Foo: WireFormatEncodable, WireFormatDecodable {
+    public static var wireType: WireType {
+        .lengthDelimited
+    }
+
+    public func encodePayload(into writer: inout WireFormatWriter) {
+        writer.writeTag(tag: 1, wireType: Int32.wireType)
+        x.encode(into: &writer)
+    }
+
+    public func encode(into writer: inout WireFormatWriter) {
+        writer.writeLengthPrefixed { inner in
+            encodePayload(into: &inner)
+        }
+    }
+
+    public init(decodingPayload reader: inout WireFormatReader) throws {
+        var _x: Int32? = nil
+        while !reader.isAtEnd {
+            let (tag, wt) = try reader.readTag()
+            switch tag {
+            case 1:
+                _x = try Int32(from: &reader)
+            default:
+                try reader.skipUnknownField(wireType: wt)
+            }
+        }
+        guard let _x else {
+            throw WireFormatError.unknownTag(tag: 1, wireType: Int32.wireType)
+        }
+        self.x = _x
+    }
+
+    public init(from reader: inout WireFormatReader) throws {
+        let len = Int(try reader.readVarint())
+        let slice = try reader.readBytes(count: len)
+        var inner = WireFormatReader(data: slice)
+        try self.init(decodingPayload: &inner)
+    }
+}
+"""
 
 /// Diagnostic-coverage tests for the four macros. Each test exercises a
 /// known misuse case and pins the exact diagnostic message + severity the
@@ -32,10 +157,10 @@ final class DiagnosticTests: XCTestCase {
                     message: "@WireFormat can only be applied to a struct",
                     line: 1,
                     column: 1,
-                    severity: .error
+                    severity: .error,
                 ),
             ],
-            macros: diagMacros
+            macros: diagMacros,
         )
     }
 
@@ -55,10 +180,10 @@ final class DiagnosticTests: XCTestCase {
                     message: "@WireFormatEnum can only be applied to an enum",
                     line: 1,
                     column: 1,
-                    severity: .error
+                    severity: .error,
                 ),
             ],
-            macros: diagMacros
+            macros: diagMacros,
         )
     }
 
@@ -84,85 +209,30 @@ final class DiagnosticTests: XCTestCase {
                     message: "@WireFormatEnum requires the enum to declare a raw type (e.g. ': UInt8' or ': String')",
                     line: 1,
                     column: 1,
-                    severity: .error
+                    severity: .error,
                 ),
             ],
-            macros: diagMacros
+            macros: diagMacros,
         )
     }
 
     // MARK: - Case 3: @WireFormatChoice on enum without any associated values
 
     func testWireFormatChoiceWithoutAssociatedValuesWarns() {
+        let message =
+            "@WireFormatChoice expects at least one case with associated values; prefer @WireFormatEnum for plain enums"
         assertMacroExpansion(
-            """
-            @WireFormatChoice
-            enum Color {
-                case red
-                case green
-                case blue
-            }
-            """,
-            expandedSource: """
-            enum Color {
-                case red
-                case green
-                case blue
-            }
-
-            extension Color: WireFormatEncodable, WireFormatDecodable {
-                public static var wireType: WireType {
-                    .lengthDelimited
-                }
-
-                public func encodePayload(into writer: inout WireFormatWriter) {
-                    switch self {
-                    case .red:
-                        writer.writeVarint(UInt64(0))
-                    case .green:
-                        writer.writeVarint(UInt64(1))
-                    case .blue:
-                        writer.writeVarint(UInt64(2))
-                    }
-                }
-
-                public func encode(into writer: inout WireFormatWriter) {
-                    writer.writeLengthPrefixed { inner in
-                        encodePayload(into: &inner)
-                    }
-                }
-
-                public init(decodingPayload reader: inout WireFormatReader) throws {
-                    let disc = try reader.readVarint()
-                    switch disc {
-                    case 0:
-                        self = .red
-                    case 1:
-                        self = .green
-                    case 2:
-                        self = .blue
-                    default:
-                        throw WireFormatError.unknownChoiceDiscriminator(UInt32(truncatingIfNeeded: disc))
-                    }
-                }
-
-                public init(from reader: inout WireFormatReader) throws {
-                    let len = Int(try reader.readVarint())
-                    let slice = try reader.readBytes(count: len)
-                    var inner = WireFormatReader(data: slice)
-                    try self.init(decodingPayload: &inner)
-                }
-            }
-            """,
+            choiceWithoutAssociatedValuesSource,
+            expandedSource: choiceWithoutAssociatedValuesExpanded,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@WireFormatChoice expects at least one case with associated values; prefer @WireFormatEnum for plain enums",
+                    message: message,
                     line: 1,
                     column: 1,
-                    severity: .warning
+                    severity: .warning,
                 ),
             ],
-            macros: diagMacros
+            macros: diagMacros,
         )
     }
 
@@ -170,73 +240,17 @@ final class DiagnosticTests: XCTestCase {
 
     func testWireFormatFieldOnComputedPropertyWarns() {
         assertMacroExpansion(
-            """
-            @WireFormat
-            struct Foo {
-                var x: Int32
-                @WireFormatField(tag: 2) var doubled: Int32 {
-                    x * 2
-                }
-            }
-            """,
-            expandedSource: """
-            struct Foo {
-                var x: Int32
-                var doubled: Int32 {
-                    x * 2
-                }
-            }
-
-            extension Foo: WireFormatEncodable, WireFormatDecodable {
-                public static var wireType: WireType {
-                    .lengthDelimited
-                }
-
-                public func encodePayload(into writer: inout WireFormatWriter) {
-                    writer.writeTag(tag: 1, wireType: Int32.wireType)
-                    x.encode(into: &writer)
-                }
-
-                public func encode(into writer: inout WireFormatWriter) {
-                    writer.writeLengthPrefixed { inner in
-                        encodePayload(into: &inner)
-                    }
-                }
-
-                public init(decodingPayload reader: inout WireFormatReader) throws {
-                    var _x: Int32? = nil
-                    while !reader.isAtEnd {
-                        let (tag, wt) = try reader.readTag()
-                        switch tag {
-                        case 1:
-                            _x = try Int32(from: &reader)
-                        default:
-                            try reader.skipUnknownField(wireType: wt)
-                        }
-                    }
-                    guard let _x else {
-                        throw WireFormatError.unknownTag(tag: 1, wireType: Int32.wireType)
-                    }
-                    self.x = _x
-                }
-
-                public init(from reader: inout WireFormatReader) throws {
-                    let len = Int(try reader.readVarint())
-                    let slice = try reader.readBytes(count: len)
-                    var inner = WireFormatReader(data: slice)
-                    try self.init(decodingPayload: &inner)
-                }
-            }
-            """,
+            fieldOnComputedPropertySource,
+            expandedSource: fieldOnComputedPropertyExpanded,
             diagnostics: [
                 DiagnosticSpec(
                     message: "@WireFormatField is ignored on computed property 'doubled'",
                     line: 4,
                     column: 5,
-                    severity: .warning
+                    severity: .warning,
                 ),
             ],
-            macros: diagMacros
+            macros: diagMacros,
         )
     }
 }

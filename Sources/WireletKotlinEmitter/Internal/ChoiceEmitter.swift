@@ -21,29 +21,14 @@ enum ChoiceEmitter {
         let codecName = "\(kotlinName)Codec"
         let path = codecPackage.replacingOccurrences(of: ".", with: "/") + "/\(codecName).kt"
 
-        // Imports.
-        var referenced = Set<String>()
-        var usesDictionary = false
-        for c in choice.cases {
-            for field in c.payload {
-                collectReferenced(typeText: field.typeText, into: &referenced, transform: nameTransform)
-                if StructEmitter.containsDictionary(typeText: field.typeText) {
-                    usesDictionary = true
-                }
-            }
-        }
-        var importLines = ["import \(modelPackage).\(kotlinName)"]
-        importLines += referenced.sorted().map { "import \(modelPackage).\($0)" }
-        if serializationPackage != codecPackage {
-            importLines.append("import \(serializationPackage).BinaryReader")
-            importLines.append("import \(serializationPackage).BinaryWriter")
-            importLines.append("import \(serializationPackage).WireFormatException")
-            importLines.append("import \(serializationPackage).WireType")
-            if usesDictionary {
-                importLines.append("import \(serializationPackage).ByteArrayLexComparator")
-            }
-        }
-        let allImports = importLines.joined(separator: "\n")
+        let allImports = emitImports(
+            choice,
+            kotlinName: kotlinName,
+            modelPackage: modelPackage,
+            codecPackage: codecPackage,
+            serializationPackage: serializationPackage,
+            nameTransform: nameTransform,
+        )
 
         let encodeBranches = choice.cases.enumerated().map { idx, c in
             emitEncodeBranch(c: c, index: idx, kotlinName: kotlinName, transform: nameTransform)
@@ -91,6 +76,38 @@ enum ChoiceEmitter {
         """
 
         return KotlinFile(relativePath: path, content: content)
+    }
+
+    private static func emitImports(
+        _ choice: WireChoice,
+        kotlinName: String,
+        modelPackage: String,
+        codecPackage: String,
+        serializationPackage: String,
+        nameTransform: NameTransform,
+    ) -> String {
+        var referenced = Set<String>()
+        var usesDictionary = false
+        for c in choice.cases {
+            for field in c.payload {
+                collectReferenced(typeText: field.typeText, into: &referenced, transform: nameTransform)
+                if StructEmitter.containsDictionary(typeText: field.typeText) {
+                    usesDictionary = true
+                }
+            }
+        }
+        var importLines = ["import \(modelPackage).\(kotlinName)"]
+        importLines += referenced.sorted().map { "import \(modelPackage).\($0)" }
+        if serializationPackage != codecPackage {
+            importLines.append("import \(serializationPackage).BinaryReader")
+            importLines.append("import \(serializationPackage).BinaryWriter")
+            importLines.append("import \(serializationPackage).WireFormatException")
+            importLines.append("import \(serializationPackage).WireType")
+            if usesDictionary {
+                importLines.append("import \(serializationPackage).ByteArrayLexComparator")
+            }
+        }
+        return importLines.joined(separator: "\n")
     }
 
     private static func emitEncodeBranch(
@@ -160,7 +177,8 @@ enum ChoiceEmitter {
         for (i, field) in c.payload.enumerated() {
             let tag = i + 1
             let wt = StructEmitter.wireTypeRef(for: field.typeText, transform: transform)
-            lines.append("                val arg\(i) = _arg\(i) ?: throw WireFormatException.UnknownTag(\(tag), \(wt))")
+            let throwExpr = "throw WireFormatException.UnknownTag(\(tag), \(wt))"
+            lines.append("                val arg\(i) = _arg\(i) ?: \(throwExpr)")
         }
         let constructorArgs = c.payload.enumerated().map { i, field -> String in
             let prop = field.label ?? "arg\(i)"

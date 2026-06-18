@@ -1,7 +1,7 @@
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
-import XCTest
 @testable import WireletMacros
+import XCTest
 
 private let testMacros: [String: Macro.Type] = [
     "WireFormatEnum": WireFormatEnumMacro.self,
@@ -47,7 +47,7 @@ final class WireFormatEnumMacroExpansionTests: XCTestCase {
                 }
             }
             """,
-            macros: testMacros
+            macros: testMacros,
         )
     }
 
@@ -90,7 +90,7 @@ final class WireFormatEnumMacroExpansionTests: XCTestCase {
                 }
             }
             """,
-            macros: testMacros
+            macros: testMacros,
         )
     }
 }

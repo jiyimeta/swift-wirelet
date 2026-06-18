@@ -28,7 +28,8 @@ enum WireFormatDiagnostic: DiagnosticMessage {
         case let .tagOutOfRange(name):
             return "Field '\(name)' has explicit tag 0; tags must be > 0"
         case .choiceWithoutAssociatedValues:
-            return "@WireFormatChoice expects at least one case with associated values; prefer @WireFormatEnum for plain enums"
+            let expectation = "@WireFormatChoice expects at least one case with associated values"
+            return "\(expectation); prefer @WireFormatEnum for plain enums"
         case let .fieldOnComputedProperty(name):
             return "@WireFormatField is ignored on computed property '\(name)'"
         }

@@ -1,4 +1,4 @@
-import WireletObservableSchema  // InvokeArgClassifier, InvokeArgKind
+import WireletObservableSchema // InvokeArgClassifier, InvokeArgKind
 
 /// Maps a Swift type text (as recorded by `ProvidedSchemaParser`) to its
 /// Kotlin representations for the generated interface and native adapter.
@@ -32,26 +32,26 @@ enum ProvidedKotlinTypeMap {
         forTypeText typeText: String,
         service: String,
         method: String,
-        config: ProvidedCodegenConfig
+        config: ProvidedCodegenConfig,
     ) throws -> TypeInfo {
         switch InvokeArgClassifier.classify(typeText) {
-        case .primitive(let jni, _):
+        case let .primitive(jni, _):
             let kt = kotlinPrimitive(jniSwiftType: jni)
             return TypeInfo(
                 friendlyType: kt, wireType: kt, imports: [],
-                decode: { $0 }, encode: { $0 }
+                decode: { $0 }, encode: { $0 },
             )
         case .bool:
             return TypeInfo(
                 friendlyType: "Boolean", wireType: "Boolean", imports: [],
-                decode: { $0 }, encode: { $0 }
+                decode: { $0 }, encode: { $0 },
             )
         case .string:
             return TypeInfo(
                 friendlyType: "String", wireType: "String", imports: [],
-                decode: { $0 }, encode: { $0 }
+                decode: { $0 }, encode: { $0 },
             )
-        case .wireFormat(let typeName):
+        case let .wireFormat(typeName):
             let codec = "\(typeName)Codec"
             return TypeInfo(
                 friendlyType: typeName,
@@ -61,9 +61,9 @@ enum ProvidedKotlinTypeMap {
                     "\(config.codecPackage).\(codec)",
                 ],
                 decode: { expr in "\(codec).decode(\(expr))" },
-                encode: { expr in "\(codec).encode(\(expr))" }
+                encode: { expr in "\(codec).encode(\(expr))" },
             )
-        case .array(let elementTypeName):
+        case let .array(elementTypeName):
             let codec = "\(elementTypeName)Codec"
             return TypeInfo(
                 friendlyType: "List<\(elementTypeName)>",
@@ -74,11 +74,11 @@ enum ProvidedKotlinTypeMap {
                     "\(config.runtimePackage).WireletList",
                 ],
                 decode: { expr in "WireletList.decode(\(expr), \(codec)::decodePayload)" },
-                encode: { expr in "WireletList.encode(\(expr), \(codec)::encodePayload)" }
+                encode: { expr in "WireletList.encode(\(expr), \(codec)::encodePayload)" },
             )
         case .optionalPrimitive, .optionalString, .optionalWireFormat:
             throw ProvidedKotlinEmitterError.unsupportedType(
-                service: service, method: method, type: typeText
+                service: service, method: method, type: typeText,
             )
         }
     }
@@ -89,11 +89,11 @@ enum ProvidedKotlinTypeMap {
     /// to the Kotlin primitive name.
     private static func kotlinPrimitive(jniSwiftType: String) -> String {
         switch jniSwiftType {
-        case "jint":    return "Int"
-        case "jlong":   return "Long"
-        case "jfloat":  return "Float"
+        case "jint": return "Int"
+        case "jlong": return "Long"
+        case "jfloat": return "Float"
         case "jdouble": return "Double"
-        default:        return "Int"  // fallback: unmapped JNI type
+        default: return "Int" // fallback: unmapped JNI type
         }
     }
 }

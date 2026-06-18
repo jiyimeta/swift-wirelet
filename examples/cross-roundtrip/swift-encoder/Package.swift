@@ -12,7 +12,7 @@ let package = Package(
             name: "swift-encoder",
             dependencies: [
                 .product(name: "SharedSchema", package: "shared-schema"),
-            ]
+            ],
         ),
-    ]
+    ],
 )

@@ -275,6 +275,24 @@ swift test
 ./examples/cross-roundtrip/verify.sh
 ```
 
+## Contributing
+
+This repo enforces formatting and linting through a
+[pre-commit](https://pre-commit.com) hook (SwiftFormat, then SwiftLint
+`--fix`, then SwiftLint `--strict`). Install it once per clone so every
+commit is checked locally:
+
+```bash
+brew install pre-commit swiftlint swiftformat   # if not already installed
+pre-commit install
+```
+
+Run the hooks across the whole tree at any time:
+
+```bash
+pre-commit run --all-files
+```
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE) — applies to `Sources/`, `kotlin/`, the

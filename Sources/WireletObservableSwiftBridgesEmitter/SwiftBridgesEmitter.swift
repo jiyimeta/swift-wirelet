@@ -28,7 +28,7 @@ public struct SwiftBridgesEmitter {
     ///   files and `__WireletObservableJNI_OnLoad.swift` for the JNI_OnLoad.
     public func emit(
         sources: [URL],
-        jniConfig: JNIRegistrationConfig? = nil
+        jniConfig: JNIRegistrationConfig? = nil,
     ) throws -> [(name: String, content: String)] {
         var results: [(name: String, content: String)] = []
         for url in sources {
@@ -61,7 +61,7 @@ public struct SwiftBridgesEmitter {
         // Constructor and destructor
         bridges.append(ConstructorEmitter.renderConstructor(
             className: className,
-            initParameters: viewModel.initParameters
+            initParameters: viewModel.initParameters,
         ))
         bridges.append(ConstructorEmitter.renderDestructor(className: className))
 
