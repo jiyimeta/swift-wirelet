@@ -1,0 +1,61 @@
+# Dependabot configuration for swift-wirelet.
+#
+# Covers the three dependency ecosystems present in the repo:
+#   - Swift package (root Package.swift / Package.resolved)
+#   - Gradle project (the Kotlin runtime + plugin live under kotlin/)
+#   - GitHub Actions used by the workflows under .github/workflows
+#
+# Minor and patch bumps are grouped per ecosystem to keep PR volume low;
+# major bumps stay as individual PRs so they can be reviewed in isolation.
+#
+# The example SwiftPM packages under examples/ are intentionally NOT tracked
+# (they are illustrative and pinned for demonstration). Add per-directory
+# "swift" entries there only if those examples start shipping real deps.
+version: 2
+
+updates:
+  # Swift package — root Package.swift / Package.resolved
+  # (real external deps: swift-syntax, swift-java-jni-core)
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      swift-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Kotlin Gradle project — kotlin/ (runtime, gradle-plugin, observable-runtime)
+  # Also picks up the Gradle wrapper under kotlin/gradle/wrapper/.
+  - package-ecosystem: "gradle"
+    directory: "/kotlin"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      gradle-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions — workflows under .github/workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"

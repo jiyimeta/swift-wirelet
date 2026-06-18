@@ -1,0 +1,6 @@
+# Code owners for swift-wirelet.
+# @jiyimeta is the default owner of everything in this repository, so all
+# pull requests automatically request review from the maintainer.
+# See https://docs.github.com/articles/about-code-owners for syntax.
+
+* @jiyimeta

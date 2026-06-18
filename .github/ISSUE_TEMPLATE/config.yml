@@ -1,0 +1,9 @@
+# Allow opening a blank issue so usage questions / support requests have a
+# fallback path. (GitHub Discussions are not enabled at launch; if/when they
+# are, add a contact_link here pointing at the Q&A category and consider
+# flipping this back to false.)
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/jiyimeta/swift-wirelet/security/advisories/new
+    about: Please report vulnerabilities privately via the Security tab → "Report a vulnerability", not as a public issue. See SECURITY.md.

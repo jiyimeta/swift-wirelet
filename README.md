@@ -277,21 +277,16 @@ swift test
 
 ## Contributing
 
-This repo enforces formatting and linting through a
-[pre-commit](https://pre-commit.com) hook (SwiftFormat, then SwiftLint
-`--fix`, then SwiftLint `--strict`). Install it once per clone so every
-commit is checked locally:
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+prerequisites, one-time pre-commit setup, the local verification commands,
+the Conventional Commits convention, and the PR flow. This project follows
+the [Contributor Covenant](CODE_OF_CONDUCT.md) code of conduct, and notable
+changes are tracked in [CHANGELOG.md](CHANGELOG.md). To report a security
+vulnerability, do not open a public issue — see [SECURITY.md](SECURITY.md).
 
-```bash
-brew install pre-commit swiftlint swiftformat   # if not already installed
-pre-commit install
-```
-
-Run the hooks across the whole tree at any time:
-
-```bash
-pre-commit run --all-files
-```
+In short: `brew install pre-commit swiftlint swiftformat`, then
+`pre-commit install` once per clone; the **Lint** CI workflow runs the same
+SwiftFormat + SwiftLint `--strict` checks.
 
 ## License
 

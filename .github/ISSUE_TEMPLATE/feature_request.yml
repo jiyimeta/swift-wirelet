@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a new capability or improvement for swift-wirelet.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Describe the problem first, then the solution —
+        it helps to understand the need before evaluating a specific design.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? What does the current toolkit not let you do?
+      placeholder: "I want to bridge a type that isn't currently supported across the wire because …"
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the behavior or API you'd like. If it touches the wire format,
+        a macro, the codegen, or a bridge, say which.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds you've considered, and why they fall short.
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Anything else — links, prior art, example declarations, related issues.
+    validations:
+      required: false
