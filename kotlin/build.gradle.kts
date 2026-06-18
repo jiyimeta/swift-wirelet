@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.9.22" apply false
+    kotlin("jvm") version "2.4.0" apply false
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1" apply false
 }
 
