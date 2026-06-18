@@ -19,7 +19,7 @@ dependencies {
     api(project(":runtime"))
 
     testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.4")
 }
 
 tasks.test {
