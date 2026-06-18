@@ -55,6 +55,12 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # junit-jupiter 5.12+ pulls a junit-platform newer than the launcher
+      # Gradle bundles, which breaks `gradle test` with "OutputDirectoryCreator
+      # not available; ... unaligned junit-platform-engine and
+      # junit-platform-launcher". Pin junit-jupiter (stays 5.10.x) until we add
+      # an explicit org.junit.platform:junit-platform-launcher test dependency.
+      - dependency-name: "org.junit.jupiter:junit-jupiter"
 
   # GitHub Actions — workflows under .github/workflows
   - package-ecosystem: "github-actions"
