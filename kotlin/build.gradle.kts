@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.9.22" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.1" apply false
+    kotlin("jvm") version "1.9.25" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "12.3.0" apply false
 }
 
 // ktlint is the Kotlin counterpart of SwiftFormat/SwiftLint on the Swift
