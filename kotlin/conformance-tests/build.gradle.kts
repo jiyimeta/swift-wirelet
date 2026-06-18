@@ -29,6 +29,17 @@ val wireletRoot: File = rootDir.parentFile // kotlin/.. = wirelet repo root
 
 sourceSets["main"].kotlin.srcDirs("src/main/kotlin", "build/generated/wirelet")
 
+// The codecs under build/generated/wirelet are machine-emitted but live in
+// the main source set so the tests compile against them. Keep ktlint off
+// them: linting generated output is pointless, and it otherwise makes the
+// main-source ktlint check read generateCodecs' output without a declared
+// task dependency — a hard error under Gradle 8.5 on a clean build.
+ktlint {
+    filter {
+        exclude { it.file.path.contains("/build/generated/") }
+    }
+}
+
 // Generate codecs from FixtureSchemas.swift before compiling Kotlin.
 val generateCodecs by tasks.registering(Exec::class) {
     description = "Run emit-wirelet-kotlin against Tests/ConformanceTests/FixtureSchemas.swift"
