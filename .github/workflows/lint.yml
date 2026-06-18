@@ -1,0 +1,117 @@
+name: Lint
+
+# Fail-closed lint/format gate. Backstops the local pre-commit hook, which
+# developers may forget to install and which `git commit --no-verify`
+# bypasses. Any violation fails the job (non-zero exit).
+#
+# Tooling is pinned to the exact versions verified locally:
+#   - SwiftLint   0.63.2 -> ghcr.io/realm/swiftlint:0.63.2
+#   - SwiftFormat 0.61.1 -> ghcr.io/nicklockwood/swiftformat:0.61.1
+# Both are official, multi-arch (linux/amd64 + linux/arm64) Ubuntu images
+# that bundle the Swift runtime / SourceKit the binaries need, so they run
+# directly on the cheap ubuntu-latest runner (macOS bills at ~10x).
+#
+# Checkout runs on the host runner (which has git); the pinned tool images
+# are invoked via `docker run` with the workspace bind-mounted. This keeps
+# the git-less tool images out of the checkout path entirely.
+#
+# All checks live in a single `lint` job (one runner, one checkout) to keep
+# runner-minute consumption minimal for a sub-minute job. The steps run
+# sequentially and each fails the whole job on any violation.
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: swiftformat + swiftlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Whole-repo format check. The root .swiftformat excludes **/Fixtures,
+      # so this covers Sources, Tests, Plugins, and examples.
+      #
+      # The image's default ENTRYPOINT is /usr/bin/swiftformat, so only
+      # arguments are passed (mirroring the swiftlint steps below, which also
+      # rely on the default ENTRYPOINT). --lint reports without modifying;
+      # --strict makes any required change an error (exit 1) -> fail-closed.
+      # The container's default WORKDIR is /, so we mount the workspace and
+      # set -w to its mount path.
+      - name: swiftformat --lint --strict .
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            ghcr.io/nicklockwood/swiftformat:0.61.1 \
+            --lint --strict .
+
+      # The root .swiftlint.yml sets included: [Sources, Tests] and excludes
+      # **/Fixtures. A no-arg run honors `included`, so it covers Sources +
+      # Tests only. --strict promotes warnings to errors -> fail-closed.
+      # The image ENTRYPOINT is /usr/bin/swiftlint, so the args map to
+      # `swiftlint lint --strict`.
+      - name: swiftlint lint --strict (Sources + Tests)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            ghcr.io/realm/swiftlint:0.63.2 \
+            lint --strict
+
+      # Plugins/ and examples/ are outside `included`, so the no-arg run skips
+      # them. Passing a directory would NOT add them — SwiftLint applies
+      # `included` even for a directory argument (verified locally: a `Plugins`
+      # dir arg still lints only the Sources+Tests set). Only explicit *file*
+      # paths bypass `included`, which is exactly how the local pre-commit hook
+      # covers these sources: it runs with types:[swift] / exclude Fixtures and
+      # no path filter, so it passes every staged .swift outside Fixtures —
+      # Sources, Tests, Plugins AND examples — as explicit paths. To be a true
+      # backstop for that hook (the gate must catch a --no-verify bypass), we
+      # enumerate Plugins/ + examples/ on the host and pass them in.
+      #
+      # Explicit file paths bypass NOT ONLY `included:` but also `excluded:`,
+      # so the enumeration must itself reproduce the hook's tracked-file scope:
+      #   - prune build/dependency dirs (.build, .swiftpm) — a fresh checkout
+      #     has none (they are gitignored, none are tracked), but a cache
+      #     restore or a prior build step could materialize them, and feeding
+      #     vendored swift-syntax sources to --strict would fail on foreign
+      #     violations. The pre-commit hook never sees these (untracked).
+      #   - prune Fixtures (parsed as text; never linted) to match
+      #     .swiftlint.yml's `excluded: **/Fixtures` and the hook's
+      #     `exclude: (^|/)Fixtures/`.
+      #
+      # Fail-closed details:
+      #   - `find` is captured to a file with its own error check, so a
+      #     partial find failure aborts rather than linting a truncated set.
+      #   - an empty match (e.g. both dirs removed/renamed) errors rather than
+      #     passing vacuously.
+      #   - `%p` (full path) — NOT `%P`, which strips the start-point dir and
+      #     would yield `/work/WireletObservableBridges/...` instead of
+      #     `/work/Plugins/WireletObservableBridges/...`. The workspace is
+      #     bind-mounted at /work and `find` runs from the workspace root.
+      - name: swiftlint lint --strict (Plugins + examples, explicit files)
+        run: |
+          set -euo pipefail
+          find Plugins examples \
+            \( -name .build -o -name .swiftpm -o -name Fixtures \) -prune -o \
+            -name '*.swift' -type f -printf '/work/%p\n' \
+            > /tmp/lint_files || { echo "::error::find failed while enumerating Swift files"; exit 1; }
+          mapfile -t files < /tmp/lint_files
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No Swift files found under Plugins/ or examples/ — refusing to pass vacuously."
+            exit 1
+          fi
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            ghcr.io/realm/swiftlint:0.63.2 \
+            lint --strict "${files[@]}"
