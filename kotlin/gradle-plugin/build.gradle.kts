@@ -24,7 +24,7 @@ dependencies {
     // AGP API used reflectively to wire generated source dirs into Android
     // variants. `gradle-api` (not `gradle`) is the API-only artifact and
     // matters only at compile time — the consumer brings their own AGP.
-    compileOnly("com.android.tools.build:gradle-api:8.7.0")
+    compileOnly("com.android.tools.build:gradle-api:8.13.2")
 
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
