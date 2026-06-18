@@ -27,9 +27,9 @@ jobs:
       - name: Install Swift
         # gradle-plugin functional tests fork `swift run emit-wirelet-kotlin`,
         # so a Swift toolchain is required on the Kotlin CI host as well.
-        uses: swift-actions/setup-swift@v2
+        uses: SwiftyLab/setup-swift@latest
         with:
-          swift-version: '6.1'
+          swift-version: '6.3.2'
 
       - name: swift --version
         run: swift --version

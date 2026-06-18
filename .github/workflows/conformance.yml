@@ -30,9 +30,9 @@ jobs:
           java-version: '17'
 
       - name: Install Swift
-        uses: swift-actions/setup-swift@v2
+        uses: SwiftyLab/setup-swift@latest
         with:
-          swift-version: '6.1'
+          swift-version: '6.3.2'
 
       - name: Swift ConformanceTests (produces / re-checks .bin fixtures)
         run: swift test --filter ConformanceTests
