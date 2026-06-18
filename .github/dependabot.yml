@@ -5,8 +5,12 @@
 #   - Gradle project (the Kotlin runtime + plugin live under kotlin/)
 #   - GitHub Actions used by the workflows under .github/workflows
 #
-# Minor and patch bumps are grouped per ecosystem to keep PR volume low;
-# major bumps stay as individual PRs so they can be reviewed in isolation.
+# Policy: minor and patch bumps are grouped per ecosystem into a single PR
+# to keep volume low. MAJOR bumps are IGNORED here — toolchain/breaking
+# upgrades (Kotlin, Gradle, AGP, JUnit, GitHub Action majors, …) are done
+# deliberately, not via weekly automated PRs. Dependabot SECURITY updates
+# are independent of this version-update config and still apply; keep them
+# enabled under Settings → Security (Dependabot alerts + security updates).
 #
 # The example SwiftPM packages under examples/ are intentionally NOT tracked
 # (they are illustrative and pinned for demonstration). Add per-directory
@@ -29,6 +33,9 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # Kotlin Gradle project — kotlin/ (runtime, gradle-plugin, observable-runtime)
   # Also picks up the Gradle wrapper under kotlin/gradle/wrapper/.
@@ -45,6 +52,9 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions — workflows under .github/workflows
   - package-ecosystem: "github-actions"
@@ -59,3 +69,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
