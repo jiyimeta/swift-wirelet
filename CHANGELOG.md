@@ -11,6 +11,17 @@ GitHub Packages; the SwiftPM package is consumed by Git revision/tag.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-14
+
+### Changed
+
+- `Wirelet` imports `FoundationEssentials` on platforms that ship it
+  (Linux, Android, WASI) instead of the `Foundation` umbrella. The
+  umbrella carries ICU, which costs ~10 MB brotli in a WebAssembly build
+  for a module that only needs `Data`; measured in a consumer, a probe
+  linking the codecs went from 13.65 MB to 3.55 MB. Apple platforms have
+  no `FoundationEssentials` module and are unaffected. No API change.
+
 ## [0.4.0] - 2026-06-17
 
 ### Changed
@@ -74,7 +85,8 @@ GitHub Packages; the SwiftPM package is consumed by Git revision/tag.
   macros, schema parser, Kotlin emitter CLI, and SwiftPM build-tool
   plugins) plus the cross-language conformance suite.
 
-[Unreleased]: https://github.com/jiyimeta/swift-wirelet/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jiyimeta/swift-wirelet/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jiyimeta/swift-wirelet/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jiyimeta/swift-wirelet/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/jiyimeta/swift-wirelet/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/jiyimeta/swift-wirelet/compare/v0.3.0...v0.3.1
