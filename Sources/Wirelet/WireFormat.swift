@@ -1,4 +1,8 @@
-import Foundation
+#if canImport(FoundationEssentials)
+    import FoundationEssentials
+#else
+    import Foundation
+#endif
 
 /// A type that can serialize itself into a `WireFormatWriter` in this
 /// package's canonical TLV (tag/length/value) binary form.

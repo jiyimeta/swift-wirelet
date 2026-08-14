@@ -1,4 +1,8 @@
-import Foundation
+#if canImport(FoundationEssentials)
+    import FoundationEssentials
+#else
+    import Foundation
+#endif
 
 extension WireFormatWriter {
     /// Append an unsigned little-endian base-128 varint (7 bits per byte,

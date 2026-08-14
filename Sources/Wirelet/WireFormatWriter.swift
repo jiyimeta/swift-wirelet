@@ -1,4 +1,8 @@
-import Foundation
+#if canImport(FoundationEssentials)
+    import FoundationEssentials
+#else
+    import Foundation
+#endif
 
 /// Minimal little-endian byte sink for wire-format encoding.
 public struct WireFormatWriter {
