@@ -11,6 +11,12 @@ public struct KotlinFile: Equatable, Sendable {
 
 public enum KotlinEmitterError: Error, Equatable {
     case unsupportedType(String)
+    /// A `@WireFormat` field carries a Swift default value that `KotlinLiteral`
+    /// will not translate. Reported rather than ignored: the default's whole
+    /// purpose is to keep an appended field from becoming a required Kotlin
+    /// constructor parameter, so emitting the field without it would reintroduce
+    /// the break silently, in someone else's build.
+    case untranslatableDefault(type: String, field: String, swiftLiteral: String)
 }
 
 public struct KotlinEmitter: Sendable {
@@ -38,7 +44,7 @@ public struct KotlinEmitter: Sendable {
                     nameTransform: config.nameTransform,
                 ))
                 if config.emitModels {
-                    files.append(ModelEmitter.emitStruct(
+                    try files.append(ModelEmitter.emitStruct(
                         s,
                         kotlinName: kotlinName,
                         modelPackage: modelPkg,

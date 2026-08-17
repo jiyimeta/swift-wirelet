@@ -11,6 +11,26 @@ GitHub Packages; the SwiftPM package is consumed by Git revision/tag.
 
 ## [Unreleased]
 
+### Added
+
+- A `@WireFormat` field's Swift default value is carried into the generated
+  Kotlin `data class` as a parameter default. The wire format is append-only
+  and its decoders skip tags they do not recognise, so appending a field keeps
+  every existing *encoder* working — but the generated Kotlin gained a required
+  constructor parameter each time, so the same append broke every Kotlin host
+  at the source level. The two halves of the contract now agree: declare
+  `public var showsLyrics: UInt8 = 1` and hosts that predate the field keep
+  compiling, with the behaviour the default names.
+  Deliberately per-field rather than blanket — a default belongs only where a
+  safe value exists, and where none does the compile error is the point, since
+  it forces each host to decide. Only plain literals of the scalar types the
+  wire already carries are translated (`1` → `1u` for `UInt8`, `7` → `7L` for
+  `Int64`, and so on); a default the emitter cannot vouch for fails codegen
+  with `KotlinEmitterError.untranslatableDefault` rather than being dropped,
+  because dropping it would restore the required parameter silently, in
+  someone else's build. Optional fields are unchanged: their `null` comes from
+  the type, and a declared default does not override it.
+
 ## [0.4.1] - 2026-08-14
 
 ### Changed

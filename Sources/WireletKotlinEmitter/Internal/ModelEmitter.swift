@@ -15,7 +15,7 @@ enum ModelEmitter {
         modelPackage: String,
         nameTransform: NameTransform,
         resolver: PackageResolver,
-    ) -> KotlinFile {
+    ) throws -> KotlinFile {
         let path = modelPackage.replacingOccurrences(of: ".", with: "/") + "/\(kotlinName).kt"
 
         var referenced = Set<String>()
@@ -30,10 +30,30 @@ enum ModelEmitter {
             nameTransform: nameTransform,
         )
 
-        let fieldLines = wireStruct.fields.map { field -> String in
+        let fieldLines = try wireStruct.fields.map { field -> String in
             let baseType = KotlinTypeMap.kotlinType(of: field.wrappedTypeText, nameTransform: nameTransform)
-            let typeText = field.isOptional ? "\(baseType)? = null" : baseType
-            return "    val \(field.name): \(typeText),"
+            // An Optional field already defaults to `null` from its type; a declared default on top
+            // of that would be a second answer to the same question, so the type wins.
+            if field.isOptional {
+                return "    val \(field.name): \(baseType)? = null,"
+            }
+            guard let swiftDefault = field.defaultLiteral else {
+                return "    val \(field.name): \(baseType),"
+            }
+            guard let kotlinDefault = KotlinLiteral.translate(
+                swiftLiteral: swiftDefault,
+                forSwiftType: field.wrappedTypeText,
+            ) else {
+                // Never fall through to "no default": dropping it would quietly restore the required
+                // constructor parameter this default exists to remove, and the break would surface as
+                // a host's compile error with nothing pointing back here.
+                throw KotlinEmitterError.untranslatableDefault(
+                    type: wireStruct.name,
+                    field: field.name,
+                    swiftLiteral: swiftDefault,
+                )
+            }
+            return "    val \(field.name): \(baseType) = \(kotlinDefault),"
         }
 
         let importsBlock = importLines.isEmpty ? "" : "\n" + importLines.joined(separator: "\n") + "\n"

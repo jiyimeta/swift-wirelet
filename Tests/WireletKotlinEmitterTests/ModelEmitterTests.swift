@@ -87,6 +87,119 @@ import WireletSchema
     #expect(model.content.contains("val b: Int? = null,"))
 }
 
+/// The reason this feature exists: a field appended to a shipped wire type must not
+/// turn into a required Kotlin constructor parameter, because the wire itself stays
+/// readable by hosts that never heard of the field.
+@Test func emitsDeclaredDefaultSoAnAppendedFieldStaysOptionalForHosts() throws {
+    let schema = Schema(types: [
+        .struct(WireStruct(
+            name: "Appended",
+            fields: [
+                WireField(name: "existing", typeText: "Int32", tag: 1),
+                WireField(name: "added", typeText: "UInt8", tag: 2, defaultLiteral: "1"),
+            ],
+            kotlinTarget: .auto,
+        )),
+    ])
+    let config = KotlinCodegenConfig(
+        defaultModelPackage: "io.example.model",
+        defaultCodecPackage: "io.example.serialization",
+        emitModels: true,
+    )
+
+    let files = try KotlinEmitter(config: config).emit(schema: schema)
+    let model = try #require(files.first { $0.relativePath == "io/example/model/Appended.kt" })
+    #expect(model.content.contains("val existing: Int,"))
+    #expect(model.content.contains("val added: UByte = 1u,"))
+}
+
+@Test func emitsEachScalarDefaultInItsKotlinSpelling() throws {
+    let cases: [(swiftType: String, swiftLiteral: String, kotlin: String)] = [
+        ("Int8", "-3", "val a: Byte = -3,"),
+        ("Int32", "1_000", "val a: Int = 1000,"),
+        ("Int64", "7", "val a: Long = 7L,"),
+        ("UInt8", "1", "val a: UByte = 1u,"),
+        ("UInt64", "9", "val a: ULong = 9uL,"),
+        ("Float", "2", "val a: Float = 2.0f,"),
+        ("Double", "0.5", "val a: Double = 0.5,"),
+        ("Bool", "true", "val a: Boolean = true,"),
+        ("String", "\"hi\"", "val a: String = \"hi\","),
+    ]
+    let config = KotlinCodegenConfig(
+        defaultModelPackage: "io.example.model",
+        defaultCodecPackage: "io.example.serialization",
+        emitModels: true,
+    )
+
+    for c in cases {
+        let schema = Schema(types: [
+            .struct(WireStruct(
+                name: "Holder",
+                fields: [WireField(name: "a", typeText: c.swiftType, tag: 1, defaultLiteral: c.swiftLiteral)],
+                kotlinTarget: .auto,
+            )),
+        ])
+        let files = try KotlinEmitter(config: config).emit(schema: schema)
+        let model = try #require(files.first { $0.relativePath == "io/example/model/Holder.kt" })
+        #expect(model.content.contains(c.kotlin), "\(c.swiftType) default \(c.swiftLiteral)")
+    }
+}
+
+/// Dropping a default it cannot translate would put the required parameter back
+/// without saying so, and the break would land in a host's build instead of here.
+@Test func refusesADefaultItCannotTranslateRatherThanDroppingIt() throws {
+    let schema = Schema(types: [
+        .struct(WireStruct(
+            name: "Holder",
+            fields: [WireField(name: "a", typeText: "Int32", tag: 1, defaultLiteral: "0xFF")],
+            kotlinTarget: .auto,
+        )),
+    ])
+    let config = KotlinCodegenConfig(
+        defaultModelPackage: "io.example.model",
+        defaultCodecPackage: "io.example.serialization",
+        emitModels: true,
+    )
+
+    #expect(throws: KotlinEmitterError.untranslatableDefault(
+        type: "Holder",
+        field: "a",
+        swiftLiteral: "0xFF",
+    )) {
+        _ = try KotlinEmitter(config: config).emit(schema: schema)
+    }
+}
+
+/// An Optional field's `null` comes from its type. A declared default on top would be
+/// a second answer to the same question, so the type keeps winning and nothing moves.
+@Test func optionalFieldKeepsItsNullDefaultEvenWithADeclaredOne() throws {
+    let schema = Schema(types: [
+        .struct(WireStruct(
+            name: "Holder",
+            fields: [
+                WireField(
+                    name: "a",
+                    typeText: "Int32?",
+                    wrappedTypeText: "Int32",
+                    isOptional: true,
+                    tag: 1,
+                    defaultLiteral: "5",
+                ),
+            ],
+            kotlinTarget: .auto,
+        )),
+    ])
+    let config = KotlinCodegenConfig(
+        defaultModelPackage: "io.example.model",
+        defaultCodecPackage: "io.example.serialization",
+        emitModels: true,
+    )
+
+    let files = try KotlinEmitter(config: config).emit(schema: schema)
+    let model = try #require(files.first { $0.relativePath == "io/example/model/Holder.kt" })
+    #expect(model.content.contains("val a: Int? = null,"))
+}
+
 @Test func emitsChoiceModelWithSealedClass() throws {
     let schema = Schema(types: [
         .choice(WireChoice(

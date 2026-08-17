@@ -25,6 +25,32 @@ import Testing
     #expect(s.kotlinTarget == .auto)
 }
 
+/// A default value on the declaration is the authoring gesture that marks an appended
+/// field as safe for hosts that predate it, so the parser has to carry it through to
+/// the schema verbatim — the emitter is the only layer that can spell it in Kotlin.
+@Test func parsesDeclaredDefaultValues() {
+    let source = """
+    @WireFormat
+    public struct OptionsWire {
+        public var mode: Int32
+        public var showsLyrics: UInt8 = 1
+        public var label: String = "none"
+    }
+    """
+
+    let schema = SchemaParser.parse(source: source, fileName: "OptionsWire.swift")
+
+    guard case let .struct(s) = schema.types[0] else {
+        Issue.record("Expected struct, got \(schema.types[0])")
+        return
+    }
+    #expect(s.fields == [
+        WireField(name: "mode", typeText: "Int32", tag: 1),
+        WireField(name: "showsLyrics", typeText: "UInt8", tag: 2, defaultLiteral: "1"),
+        WireField(name: "label", typeText: "String", tag: 3, defaultLiteral: "\"none\""),
+    ])
+}
+
 @Test func parsesChoiceEnum() throws {
     let url = try #require(Bundle.module.url(
         forResource: "ChoiceEnum",

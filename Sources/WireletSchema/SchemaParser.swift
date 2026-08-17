@@ -104,6 +104,7 @@ final class WireTypeVisitor: SyntaxVisitor {
         let wrappedTypeText: String
         let isOptional: Bool
         let explicitTag: UInt32?
+        let defaultLiteral: String?
     }
 
     private func collectRawFields(from struct: StructDeclSyntax) -> [RawField] {
@@ -128,6 +129,11 @@ final class WireTypeVisitor: SyntaxVisitor {
                     wrappedTypeText: wrapped,
                     isOptional: isOpt,
                     explicitTag: explicit,
+                    // A default value on the declaration is wire-evolution metadata, not Swift
+                    // trivia: it is what tells the Kotlin emitter this appended field has a value
+                    // an un-updated host can be given. Kept verbatim; translating it is the
+                    // emitter's job, since only the emitter knows the target language.
+                    defaultLiteral: binding.initializer?.value.trimmedDescription,
                 ))
             }
         }
@@ -169,6 +175,7 @@ final class WireTypeVisitor: SyntaxVisitor {
                 wrappedTypeText: raw.wrappedTypeText,
                 isOptional: raw.isOptional,
                 tag: tag,
+                defaultLiteral: raw.defaultLiteral,
             ))
         }
         return out

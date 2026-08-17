@@ -65,18 +65,38 @@ public struct WireField: Equatable, Sendable {
     /// `@WireFormatField(tag:)` wins; otherwise the smallest counter ≥ 1
     /// not already in `reservedTags ∪ explicitTags`.
     public var tag: UInt32
+    /// The Swift default value written on the declaration (`= 1` in
+    /// `public var showsLyrics: UInt8 = 1`), verbatim, or `nil` when the
+    /// field has none.
+    ///
+    /// This is wire-evolution metadata, and it belongs beside `tag` and
+    /// `WireStruct.reservedTags` for the same reason they do: the wire is
+    /// append-only and its decoders skip tags they do not know, so a host
+    /// built against an older schema keeps working — but a generated Kotlin
+    /// `data class` breaks that promise at the language level, because every
+    /// appended field is another required constructor parameter. Declaring
+    /// the compatible default in Swift is what lets the Kotlin emitter honour
+    /// the guarantee the wire format already makes.
+    ///
+    /// Deliberately per-field rather than blanket: a default is only correct
+    /// where a *safe* value exists (`showsLyrics` non-zero means "as before").
+    /// Where none does, the missing default — and the compile error it causes
+    /// downstream — is the point, since it forces each host to decide.
+    public var defaultLiteral: String?
     public init(
         name: String,
         typeText: String,
         wrappedTypeText: String? = nil,
         isOptional: Bool = false,
         tag: UInt32 = 0,
+        defaultLiteral: String? = nil,
     ) {
         self.name = name
         self.typeText = typeText
         self.wrappedTypeText = wrappedTypeText ?? typeText
         self.isOptional = isOptional
         self.tag = tag
+        self.defaultLiteral = defaultLiteral
     }
 }
 
